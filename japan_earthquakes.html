@@ -123,6 +123,10 @@
     Min Magnitude &nbsp;<span class="val" id="magVal">M 2.5</span>
   </div>
   <input type="range" id="magSlider" min="2.5" max="7.0" step="0.1" value="2.5">
+  <div class="ctrl-label" style="margin-top:10px">
+    Last &nbsp;<span class="val" id="daysVal">30 days</span>
+  </div>
+  <input type="range" id="daysSlider" min="1" max="30" step="1" value="30">
   <div id="stats">
     Showing <b id="vis">—</b> of <b id="tot">—</b> events
     <div class="timestamp" id="ts"></div>
@@ -192,11 +196,14 @@
 
   let allFeatures = [];
   let layerGroup = L.layerGroup().addTo(map);
+  let currentMag = 2.5;
+  let currentDays = 30;
 
-  function renderMap(minMag) {
+  function renderMap() {
     layerGroup.clearLayers();
+    const cutoff = Date.now() - currentDays * 24 * 60 * 60 * 1000;
     const filtered = allFeatures
-      .filter(f => (f.properties.mag || 0) >= minMag)
+      .filter(f => (f.properties.mag || 0) >= currentMag && f.properties.time >= cutoff)
       .sort((a, b) => (a.properties.mag || 0) - (b.properties.mag || 0));
 
     filtered.forEach(f => {
@@ -245,18 +252,25 @@
       document.getElementById('tot').textContent = allFeatures.length.toLocaleString();
       document.getElementById('ts').textContent =
         'Retrieved: ' + new Date().toLocaleString();
-      renderMap(2.5);
+      renderMap();
     })
     .catch(err => {
       document.getElementById('loading').querySelector('p').textContent = 'Failed to load data';
       document.getElementById('error-msg').textContent = err.message + ' — check internet connection';
     });
 
-  const slider = document.getElementById('magSlider');
-  slider.addEventListener('input', () => {
-    const v = parseFloat(slider.value);
-    document.getElementById('magVal').textContent = 'M ' + v.toFixed(1);
-    renderMap(v);
+  const magSlider = document.getElementById('magSlider');
+  magSlider.addEventListener('input', () => {
+    currentMag = parseFloat(magSlider.value);
+    document.getElementById('magVal').textContent = 'M ' + currentMag.toFixed(1);
+    renderMap();
+  });
+
+  const daysSlider = document.getElementById('daysSlider');
+  daysSlider.addEventListener('input', () => {
+    currentDays = parseInt(daysSlider.value);
+    document.getElementById('daysVal').textContent = currentDays + (currentDays === 1 ? ' day' : ' days');
+    renderMap();
   });
 </script>
 </body>
