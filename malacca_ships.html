@@ -366,8 +366,10 @@
 
   // ---- WebSocket connection ----
   const WS_URL = 'wss://stream.aisstream.io/v0/stream';
-  // Strait of Malacca, central/southern section (Port Klang to Malacca city)
-  const BBOX = [[1.0, 98.0], [5.5, 103.0]];
+  // Strait of Malacca, extending east through the Singapore Strait —
+  // Singapore's port area has by far the densest AIS receiver coverage
+  // in the region, so excluding it leaves the bbox with little data.
+  const BBOX = [[0.5, 98.0], [5.5, 104.6]];
 
   let ws = null;
   let messageCount = 0;
@@ -409,16 +411,21 @@
     };
 
     ws.onmessage = (event) => {
-      if (!firstMessageReceived) {
-        firstMessageReceived = true;
-        clearTimeout(noDataTimer);
-        setStatus('live', 'Live');
-      }
-      messageCount++;
-      let data;
-      try { data = JSON.parse(event.data); } catch (e) { return; }
-      handleMessage(data);
-      if (messageCount % 10 === 0 || messageCount === 1) updateStats();
+      const process = (text) => {
+        if (!firstMessageReceived) {
+          firstMessageReceived = true;
+          clearTimeout(noDataTimer);
+          setStatus('live', 'Live');
+        }
+        messageCount++;
+        let data;
+        try { data = JSON.parse(text); } catch (e) { return; }
+        handleMessage(data);
+        if (messageCount % 10 === 0 || messageCount === 1) updateStats();
+      };
+      // aisstream sends binary WebSocket frames, delivered as Blob
+      if (typeof event.data === 'string') process(event.data);
+      else event.data.text().then(process);
     };
 
     ws.onerror = () => {

@@ -410,16 +410,21 @@
     };
 
     ws.onmessage = (event) => {
-      if (!firstMessageReceived) {
-        firstMessageReceived = true;
-        clearTimeout(noDataTimer);
-        setStatus('live', 'Live');
-      }
-      messageCount++;
-      let data;
-      try { data = JSON.parse(event.data); } catch (e) { return; }
-      handleMessage(data);
-      if (messageCount % 10 === 0 || messageCount === 1) updateStats();
+      const process = (text) => {
+        if (!firstMessageReceived) {
+          firstMessageReceived = true;
+          clearTimeout(noDataTimer);
+          setStatus('live', 'Live');
+        }
+        messageCount++;
+        let data;
+        try { data = JSON.parse(text); } catch (e) { return; }
+        handleMessage(data);
+        if (messageCount % 10 === 0 || messageCount === 1) updateStats();
+      };
+      // aisstream sends binary WebSocket frames, delivered as Blob
+      if (typeof event.data === 'string') process(event.data);
+      else event.data.text().then(process);
     };
 
     ws.onerror = () => {
