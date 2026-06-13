@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Earthquake Maps</title>
+  <title>Live Maps</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -37,6 +37,9 @@
     }
     a.card.jp h2 { color: #f7a47e; }
     a.card.jp:hover { border-color: rgba(247,164,126,0.5); background: rgba(247,164,126,0.08); }
+    a.card.hormuz h2 { color: #48d1cc; }
+    a.card.hormuz:hover { border-color: rgba(72,209,204,0.5); background: rgba(72,209,204,0.08); }
+    a.card.hormuz { grid-column: 1 / -1; }
     a.card p { font-size: 12px; color: #aab; line-height: 1.5; }
     footer { margin-top: 32px; font-size: 11px; color: #556; }
     footer a { color: #789; }
@@ -44,8 +47,8 @@
 </head>
 <body>
   <div class="wrap">
-    <h1>Earthquake Maps</h1>
-    <div class="subtitle">Live USGS data · M2.5+ · past 30 days</div>
+    <h1>Live Maps</h1>
+    <div class="subtitle">Earthquakes (USGS) & ship traffic (AIS) — updated in real time</div>
     <div class="cards">
       <a class="card" href="world_earthquakes.html">
         <h2>World Map</h2>
@@ -55,9 +58,14 @@
         <h2>Japan Region</h2>
         <p>Earthquakes around Japan (23–47°N, 120–150°E) with the same controls.</p>
       </a>
+      <a class="card hormuz" href="hormuz_ships.html">
+        <h2>Strait of Hormuz</h2>
+        <p>Live ship traffic via AIS — requires a free aisstream.io API key, stored only in your browser.</p>
+      </a>
     </div>
     <footer>
       Data: <a href="https://earthquake.usgs.gov/" target="_blank">USGS Earthquake Hazards Program</a>
+      · <a href="https://aisstream.io" target="_blank">aisstream.io</a>
     </footer>
   </div>
 </body>

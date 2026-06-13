@@ -1,20 +1,27 @@
-# Earthquake Map
+# Live Maps
 
-Interactive Leaflet maps of recent earthquake activity, powered by live [USGS](https://earthquake.usgs.gov/) data.
+Interactive Leaflet maps with live data. Open [index.html](index.html) for the
+full list.
 
 ## Maps
 
 - **[world_earthquakes.html](world_earthquakes.html)** — global earthquakes, M2.5+, past 30 days
 - **[japan_earthquakes.html](japan_earthquakes.html)** — Japan region (23–47°N, 120–150°E), M2.5+, past 30 days
+- **[hormuz_ships.html](hormuz_ships.html)** — live ship traffic in the Strait of Hormuz via [aisstream.io](https://aisstream.io) AIS data
 
-Both maps:
+The earthquake maps:
 
 - Fetch live data from the USGS earthquake API on load (requires internet)
 - Size bubbles by magnitude, color by depth (shallow/intermediate/deep)
 - Show a hover tooltip with location, magnitude, depth, time, and event type
 - Include a minimum-magnitude slider to filter events
 
-Open either `.html` file directly in a browser.
+The Hormuz ship map connects to aisstream.io over a WebSocket and plots live
+vessel positions, headings, and short tracks. It requires a free aisstream.io
+API key — entered once in the browser and stored only in `localStorage`,
+never written to any file in this repo.
+
+Open any `.html` file directly in a browser.
 
 ## Regenerating
 
