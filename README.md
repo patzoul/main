@@ -10,6 +10,7 @@ full list.
 - **[hormuz_ships.html](hormuz_ships.html)** — live ship traffic in the Strait of Hormuz via [aisstream.io](https://aisstream.io) AIS data
 - **[malacca_ships.html](malacca_ships.html)** — live ship traffic in the Strait of Malacca via [aisstream.io](https://aisstream.io) AIS data
 - **[submarine_cables.html](submarine_cables.html)** — global submarine cable routes, landing points, and documented damage incidents (2024–2025), data from [TeleGeography](https://www.submarinecablemap.com)
+- **[electricity_map.html](electricity_map.html)** — world heatmap of average residential electricity price by country, with a live generation-mix breakdown (coal, gas, nuclear, hydro, wind, solar…) on hover
 
 The earthquake maps:
 
@@ -29,6 +30,13 @@ with markers for ~8 documented cable-damage incidents from 2024–2025 —
 clicking an incident in the side panel flies to its location and opens a
 popup with details and sources.
 
+The electricity map (Plotly choropleth) colours each country by its residential
+electricity price (USD/kWh); countries without price data are greyed. The price
+layer is a periodic snapshot from GlobalPetrolPrices baked into the file — there
+is no free worldwide live price feed. The generation mix shown on hover is
+fetched live from [Our World in Data](https://ourworldindata.org/electricity-mix)
+each time the map opens (with the bundled snapshot as an offline fallback).
+
 Open any `.html` file directly in a browser.
 
 ## Regenerating
@@ -38,4 +46,12 @@ and rewrites both HTML files, then copies everything to the OneDrive folder.
 
 ```powershell
 .\generate_earthquake_maps.ps1
+```
+
+The electricity map regenerates with Python (downloads its source data on first
+run, then rebuilds the self-contained HTML):
+
+```powershell
+python build_data.py   # -> mapdata.json
+python build_html.py   # -> electricity_map.html
 ```

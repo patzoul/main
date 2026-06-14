@@ -44,6 +44,9 @@
     a.card.cables h2 { color: #b39ddb; }
     a.card.cables:hover { border-color: rgba(179,157,219,0.5); background: rgba(179,157,219,0.08); }
     a.card.cables { grid-column: 1 / -1; }
+    a.card.power h2 { color: #7ed99a; }
+    a.card.power:hover { border-color: rgba(126,217,154,0.5); background: rgba(126,217,154,0.08); }
+    a.card.power { grid-column: 1 / -1; }
     a.card p { font-size: 12px; color: #aab; line-height: 1.5; }
     footer { margin-top: 32px; font-size: 11px; color: #556; }
     footer a { color: #789; }
@@ -52,7 +55,7 @@
 <body>
   <div class="wrap">
     <h1>Live Maps</h1>
-    <div class="subtitle">Earthquakes (USGS) & ship traffic (AIS) — updated in real time</div>
+    <div class="subtitle">Earthquakes, ship traffic, submarine cables & electricity prices — live data</div>
     <div class="cards">
       <a class="card" href="world_earthquakes.html">
         <h2>World Map</h2>
@@ -74,10 +77,16 @@
         <h2>Submarine Cable Map</h2>
         <p>Global undersea cable routes and landing points, with documented damage incidents from 2024–2025.</p>
       </a>
+      <a class="card power" href="electricity_map.html">
+        <h2>World Electricity Prices</h2>
+        <p>Average residential price per country (heatmap), with a live generation-mix breakdown — coal, gas, nuclear, hydro, wind, solar… — on hover.</p>
+      </a>
     </div>
     <footer>
-      Data: <a href="https://earthquake.usgs.gov/" target="_blank">USGS Earthquake Hazards Program</a>
+      Data: <a href="https://earthquake.usgs.gov/" target="_blank">USGS</a>
       · <a href="https://aisstream.io" target="_blank">aisstream.io</a>
+      · <a href="https://ourworldindata.org/electricity-mix" target="_blank">Our World in Data</a>
+      · <a href="https://www.globalpetrolprices.com/electricity_prices/" target="_blank">GlobalPetrolPrices</a>
     </footer>
   </div>
 </body>

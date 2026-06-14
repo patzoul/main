@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Electricity Prices &amp; Generation Mix</title>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js" charset="utf-8"></script>
+<style>
+  :root{
+    --bg:#0f141b; --panel:#161d27; --ink:#e8edf3; --muted:#9aa7b5;
+    --line:#2a3542; --accent:#5dade2;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  header{padding:14px 20px 8px}
+  h1{font-size:20px;margin:0;font-weight:650;letter-spacing:.2px}
+  .sub{color:var(--muted);font-size:13px;margin-top:3px}
+  #status{font-size:12px;color:var(--muted);margin-top:6px}
+  #status .dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+    background:#888;margin-right:6px;vertical-align:middle}
+  #status.live .dot{background:#36c275}
+  #status.offline .dot{background:#e0a32e}
+  #map{width:100%;height:calc(100vh - 150px);min-height:420px}
+  footer{padding:6px 20px 14px;color:var(--muted);font-size:11.5px;line-height:1.5}
+  footer a{color:var(--accent);text-decoration:none}
+  /* custom hover tooltip */
+  #tip{position:fixed;z-index:50;pointer-events:none;display:none;
+    background:var(--panel);border:1px solid var(--line);border-radius:10px;
+    padding:11px 13px;min-width:230px;max-width:300px;
+    box-shadow:0 8px 28px rgba(0,0,0,.45);font-size:12.5px}
+  #tip .tname{font-weight:650;font-size:14px;margin-bottom:2px}
+  #tip .tprice{font-size:12.5px;color:var(--muted);margin-bottom:9px}
+  #tip .tprice b{color:var(--ink);font-size:13.5px}
+  #tip .tmix-h{font-size:11px;text-transform:uppercase;letter-spacing:.5px;
+    color:var(--muted);margin:0 0 6px}
+  #tip .row{display:flex;align-items:center;margin:3px 0;gap:7px}
+  #tip .sw{width:9px;height:9px;border-radius:2px;flex:0 0 auto}
+  #tip .lab{width:74px;flex:0 0 auto;color:var(--muted)}
+  #tip .barwrap{flex:1;height:8px;background:#0d1219;border-radius:4px;overflow:hidden}
+  #tip .bar{height:100%;border-radius:4px}
+  #tip .pct{width:42px;text-align:right;flex:0 0 auto;font-variant-numeric:tabular-nums}
+  #tip .nomix{color:var(--muted);font-style:italic}
+  #overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+    background:rgba(15,20,27,.7);z-index:99;font-size:14px;color:var(--muted)}
+  .spin{width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);
+    border-radius:50%;display:inline-block;margin-right:10px;animation:sp .8s linear infinite;
+    vertical-align:middle}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Average Electricity Price by Country</h1>
+  <div class="sub">Residential price (USD per kWh). Hover a country for its electricity generation mix. Countries in grey have no price data.</div>
+  <div id="status"><span class="dot"></span><span id="status-text">Loading generation mix&hellip;</span></div>
+</header>
+<div id="map"></div>
+<footer>
+  <span id="foot-sources"></span>
+</footer>
+<div id="tip"></div>
+<div id="overlay"><span class="spin"></span>Loading live generation-mix data&hellip;</div>
+
+<script>
+const RAW = {"priceAsOf":"2023-2026 average","priceSource":"GlobalPetrolPrices.com","mixSource":"Our World in Data / Ember & Energy Institute","mixSourceYearMax":2025,"prices":{"BMU":{"name":"Bermuda","price":0.466},"IRL":{"name":"Ireland","price":0.447},"ITA":{"name":"Italy","price":0.415},"CYM":{"name":"Cayman Islands","price":0.411},"DEU":{"name":"Germany","price":0.406},"BEL":{"name":"Belgium","price":0.404},"GBR":{"name":"UK","price":0.404},"LIE":{"name":"Liechtenstein","price":0.402},"CHE":{"name":"Switzerland","price":0.366},"DNK":{"name":"Denmark","price":0.361},"CZE":{"name":"Czech Republic","price":0.352},"AUT":{"name":"Austria","price":0.351},"BHS":{"name":"Bahamas","price":0.348},"CYP":{"name":"Cyprus","price":0.34},"CPV":{"name":"Cape Verde","price":0.329},"BRB":{"name":"Barbados","price":0.313},"GTM":{"name":"Guatemala","price":0.297},"EST":{"name":"Estonia","price":0.29},"JAM":{"name":"Jamaica","price":0.287},"NLD":{"name":"Netherlands","price":0.284},"LVA":{"name":"Latvia","price":0.281},"LTU":{"name":"Lithuania","price":0.281},"FRA":{"name":"France","price":0.276},"LUX":{"name":"Luxembourg","price":0.258},"AUS":{"name":"Australia","price":0.257},"URY":{"name":"Uruguay","price":0.254},"ESP":{"name":"Spain","price":0.253},"SLV":{"name":"El Salvador","price":0.253},"GRC":{"name":"Greece","price":0.251},"SWE":{"name":"Sweden","price":0.241},"PRT":{"name":"Portugal","price":0.237},"POL":{"name":"Poland","price":0.234},"SGP":{"name":"Singapore","price":0.233},"HND":{"name":"Honduras","price":0.233},"SLE":{"name":"Sierra Leone","price":0.231},"JPN":{"name":"Japan","price":0.228},"SVN":{"name":"Slovenia","price":0.227},"CHL":{"name":"Chile","price":0.224},"MLI":{"name":"Mali","price":0.221},"KEN":{"name":"Kenya","price":0.218},"BLZ":{"name":"Belize","price":0.217},"SVK":{"name":"Slovakia","price":0.213},"ROU":{"name":"Romania","price":0.212},"ABW":{"name":"Aruba","price":0.211},"NZL":{"name":"New Zealand","price":0.209},"RWA":{"name":"Rwanda","price":0.208},"BFA":{"name":"Burkina Faso","price":0.208},"PHL":{"name":"Philippines","price":0.207},"GAB":{"name":"Gabon","price":0.207},"COL":{"name":"Colombia","price":0.205},"ZAF":{"name":"South Africa","price":0.204},"TGO":{"name":"Togo","price":0.198},"AND":{"name":"Andorra","price":0.195},"PER":{"name":"Peru","price":0.187},"USA":{"name":"USA","price":0.186},"HKG":{"name":"Hong Kong","price":0.184},"SEN":{"name":"Senegal","price":0.183},"ISR":{"name":"Israel","price":0.182},"HRV":{"name":"Croatia","price":0.178},"MDA":{"name":"Moldova","price":0.177},"ISL":{"name":"Iceland","price":0.177},"PAN":{"name":"Panama","price":0.176},"NIC":{"name":"Nicaragua","price":0.176},"FIN":{"name":"Finland","price":0.174},"UGA":{"name":"Uganda","price":0.171},"CRI":{"name":"Costa Rica","price":0.17},"BRA":{"name":"Brazil","price":0.162},"NOR":{"name":"Norway","price":0.162},"BGR":{"name":"Bulgaria","price":0.154},"KHM":{"name":"Cambodia","price":0.15},"MLT":{"name":"Malta","price":0.148},"GHA":{"name":"Ghana","price":0.143},"NAM":{"name":"Namibia","price":0.141},"MUS":{"name":"Mauritius","price":0.134},"CIV":{"name":"Ivory Coast","price":0.131},"MDG":{"name":"Madagascar","price":0.129},"SRB":{"name":"Serbia","price":0.128},"MKD":{"name":"N. Maced.","price":0.128},"SWZ":{"name":"Swaziland","price":0.127},"THA":{"name":"Thailand","price":0.127},"MOZ":{"name":"Mozambique","price":0.127},"KOR":{"name":"South Korea","price":0.126},"CAN":{"name":"Canada","price":0.123},"MNE":{"name":"Montenegro","price":0.121},"MAR":{"name":"Morocco","price":0.12},"ALB":{"name":"Albania","price":0.118},"LKA":{"name":"Sri Lanka","price":0.116},"DOM":{"name":"Dom. Rep.","price":0.115},"ARM":{"name":"Armenia","price":0.112},"HUN":{"name":"Hungary","price":0.11},"MEX":{"name":"Mexico","price":0.108},"LSO":{"name":"Lesotho","price":0.106},"BIH":{"name":"Bosnia & Herz.","price":0.106},"MDV":{"name":"Maldives","price":0.101},"TWN":{"name":"Taiwan","price":0.098},"ECU":{"name":"Ecuador","price":0.097},"BWA":{"name":"Botswana","price":0.094},"IDN":{"name":"Indonesia","price":0.091},"TZA":{"name":"Tanzania","price":0.091},"JOR":{"name":"Jordan","price":0.09},"MWI":{"name":"Malawi","price":0.087},"BLR":{"name":"Belarus","price":0.085},"CMR":{"name":"Cameroon","price":0.084},"ARG":{"name":"Argentina","price":0.083},"UKR":{"name":"Ukraine","price":0.083},"ARE":{"name":"UAE","price":0.08},"VNM":{"name":"Vietnam","price":0.078},"IND":{"name":"India","price":0.077},"CHN":{"name":"China","price":0.076},"VEN":{"name":"Venezuela","price":0.069},"RUS":{"name":"Russia","price":0.068},"TUR":{"name":"Turkey","price":0.067},"TUN":{"name":"Tunisia","price":0.067},"GEO":{"name":"Georgia","price":0.066},"COD":{"name":"DR Congo","price":0.065},"PAK":{"name":"Pakistan","price":0.064},"BGD":{"name":"Bangladesh","price":0.062},"TTO":{"name":"Trinidad & Tobago","price":0.057},"KAZ":{"name":"Kazakhstan","price":0.056},"PRY":{"name":"Paraguay","price":0.054},"AFG":{"name":"Afghanistan","price":0.052},"SAU":{"name":"Saudi Arabia","price":0.052},"MYS":{"name":"Malaysia","price":0.05},"SUR":{"name":"Suriname","price":0.049},"AZE":{"name":"Azerbaijan","price":0.048},"BHR":{"name":"Bahrain","price":0.048},"NPL":{"name":"Nepal","price":0.043},"DZA":{"name":"Algeria","price":0.041},"KWT":{"name":"Kuwait","price":0.039},"UZB":{"name":"Uzbekistan","price":0.037},"NGA":{"name":"Nigeria","price":0.036},"LAO":{"name":"Laos","price":0.034},"QAT":{"name":"Qatar","price":0.032},"OMN":{"name":"Oman","price":0.03},"MMR":{"name":"Burma","price":0.025},"EGY":{"name":"Egypt","price":0.024},"ZMB":{"name":"Zambia","price":0.023},"AGO":{"name":"Angola","price":0.016},"CUB":{"name":"Cuba","price":0.015},"SDN":{"name":"Sudan","price":0.015},"IRQ":{"name":"Iraq","price":0.015},"BTN":{"name":"Bhutan","price":0.015},"KGZ":{"name":"Kyrgyzstan","price":0.014},"ETH":{"name":"Ethiopia","price":0.006},"IRN":{"name":"Iran","price":0.003}},"mix":{"AFG":{"name":"Afghanistan","year":2024,"coal":3.03,"gas":0.0,"oil":10.1,"nuclear":0.0,"hydro":75.76,"wind":0.0,"solar":11.11,"bioenergy":0.0,"other_renewables":0.0},"ALB":{"name":"Albania","year":2024,"coal":0.0,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":95.92,"wind":0.0,"solar":4.08,"bioenergy":0.0,"other_renewables":0.0},"DZA":{"name":"Algeria","year":2024,"coal":0.0,"gas":98.59,"oil":0.34,"nuclear":0.0,"hydro":0.02,"wind":0.02,"solar":1.03,"bioenergy":0.0,"other_renewables":0.0},"ASM":{"name":"American Samoa","year":2024,"coal":0.0,"gas":0.0,"oil":94.44,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":5.56,"bioenergy":0.0,"other_renewables":0.0},"AGO":{"name":"Angola","year":2024,"coal":0.0,"gas":8.98,"oil":17.32,"nuclear":0.0,"hydro":70.56,"wind":0.0,"solar":2.82,"bioenergy":0.32,"other_renewables":0.0},"ATG":{"name":"Antigua and Barbuda","year":2024,"coal":0.0,"gas":0.0,"oil":91.89,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":8.11,"bioenergy":0.0,"other_renewables":0.0},"ARG":{"name":"Argentina","year":2025,"coal":1.84,"gas":52.69,"oil":3.87,"nuclear":7.03,"hydro":17.14,"wind":12.16,"solar":3.36,"bioenergy":1.93,"other_renewables":0.0},"ARM":{"name":"Armenia","year":2025,"coal":0.0,"gas":34.05,"oil":0.0,"nuclear":26.95,"hydro":27.98,"wind":0.0,"solar":11.01,"bioenergy":0.0,"other_renewables":0.0},"ABW":{"name":"Aruba","year":2024,"coal":0.0,"gas":0.0,"oil":83.0,"nuclear":0.0,"hydro":0.0,"wind":14.0,"solar":3.0,"bioenergy":0.0,"other_renewables":0.0},"AUS":{"name":"Australia","year":2025,"coal":42.73,"gas":16.43,"oil":2.22,"nuclear":0.0,"hydro":4.27,"wind":13.7,"solar":19.59,"bioenergy":1.06,"other_renewables":0.0},"AUT":{"name":"Austria","year":2025,"coal":0.0,"gas":11.94,"oil":4.47,"nuclear":0.0,"hydro":51.8,"wind":11.35,"solar":14.08,"bioenergy":6.36,"other_renewables":0.0},"AZE":{"name":"Azerbaijan","year":2025,"coal":0.0,"gas":87.61,"oil":0.25,"nuclear":0.0,"hydro":11.46,"wind":0.32,"solar":0.0,"bioenergy":0.36,"other_renewables":0.0},"BHS":{"name":"Bahamas","year":2024,"coal":0.0,"gas":0.0,"oil":99.11,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.89,"bioenergy":0.0,"other_renewables":0.0},"BHR":{"name":"Bahrain","year":2024,"coal":0.0,"gas":99.74,"oil":0.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.26,"bioenergy":0.0,"other_renewables":0.0},"BGD":{"name":"Bangladesh","year":2025,"coal":21.51,"gas":64.29,"oil":12.06,"nuclear":0.0,"hydro":0.63,"wind":0.0,"solar":1.51,"bioenergy":0.0,"other_renewables":0.0},"BRB":{"name":"Barbados","year":2024,"coal":0.0,"gas":2.7,"oil":88.29,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":9.01,"bioenergy":0.0,"other_renewables":0.0},"BLR":{"name":"Belarus","year":2025,"coal":0.04,"gas":54.5,"oil":4.03,"nuclear":36.6,"hydro":2.01,"wind":1.04,"solar":0.8,"bioenergy":0.99,"other_renewables":0.0},"BEL":{"name":"Belgium","year":2025,"coal":0.0,"gas":21.54,"oil":6.45,"nuclear":33.08,"hydro":0.6,"wind":18.82,"solar":14.34,"bioenergy":5.17,"other_renewables":0.0},"BLZ":{"name":"Belize","year":2024,"coal":0.0,"gas":0.0,"oil":12.77,"nuclear":0.0,"hydro":51.06,"wind":0.0,"solar":2.13,"bioenergy":34.04,"other_renewables":0.0},"BEN":{"name":"Benin","year":2024,"coal":0.0,"gas":72.28,"oil":23.76,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":3.96,"bioenergy":0.0,"other_renewables":0.0},"BMU":{"name":"Bermuda","year":2024,"coal":0.0,"gas":0.0,"oil":98.36,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":1.64,"other_renewables":0.0},"BTN":{"name":"Bhutan","year":2024,"coal":0.0,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":100.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"BOL":{"name":"Bolivia","year":2025,"coal":0.0,"gas":62.44,"oil":1.47,"nuclear":0.0,"hydro":27.88,"wind":2.05,"solar":2.93,"bioenergy":3.23,"other_renewables":0.0},"BIH":{"name":"Bosnia and Herzegovina","year":2025,"coal":55.4,"gas":0.0,"oil":1.04,"nuclear":0.0,"hydro":36.63,"wind":2.56,"solar":4.09,"bioenergy":0.28,"other_renewables":0.0},"BWA":{"name":"Botswana","year":2024,"coal":98.25,"gas":0.0,"oil":1.46,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.29,"bioenergy":0.0,"other_renewables":0.0},"BRA":{"name":"Brazil","year":2025,"coal":2.29,"gas":7.31,"oil":1.69,"nuclear":2.11,"hydro":51.78,"wind":15.67,"solar":11.81,"bioenergy":7.34,"other_renewables":0.0},"VGB":{"name":"British Virgin Islands","year":2023,"coal":0.0,"gas":0.0,"oil":100.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"BRN":{"name":"Brunei","year":2024,"coal":19.78,"gas":79.14,"oil":0.9,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.18,"bioenergy":0.0,"other_renewables":0.0},"BGR":{"name":"Bulgaria","year":2025,"coal":22.52,"gas":4.87,"oil":0.68,"nuclear":39.12,"hydro":6.66,"wind":3.48,"solar":18.15,"bioenergy":4.5,"other_renewables":0.0},"BFA":{"name":"Burkina Faso","year":2024,"coal":0.0,"gas":0.0,"oil":82.84,"nuclear":0.0,"hydro":5.33,"wind":0.0,"solar":6.51,"bioenergy":5.33,"other_renewables":0.0},"BDI":{"name":"Burundi","year":2024,"coal":0.0,"gas":0.0,"oil":24.49,"nuclear":0.0,"hydro":73.47,"wind":0.0,"solar":0.0,"bioenergy":2.04,"other_renewables":0.0},"KHM":{"name":"Cambodia","year":2025,"coal":56.59,"gas":0.0,"oil":2.53,"nuclear":0.0,"hydro":29.9,"wind":0.0,"solar":10.64,"bioenergy":0.34,"other_renewables":0.0},"CMR":{"name":"Cameroon","year":2024,"coal":0.0,"gas":22.04,"oil":4.82,"nuclear":0.0,"hydro":72.04,"wind":0.0,"solar":0.55,"bioenergy":0.55,"other_renewables":0.0},"CAN":{"name":"Canada","year":2025,"coal":4.09,"gas":17.76,"oil":1.17,"nuclear":13.08,"hydro":52.84,"wind":7.89,"solar":1.56,"bioenergy":1.61,"other_renewables":0.0},"CPV":{"name":"Cape Verde","year":2024,"coal":0.0,"gas":0.0,"oil":69.23,"nuclear":0.0,"hydro":0.0,"wind":15.38,"solar":15.38,"bioenergy":0.0,"other_renewables":0.0},"CYM":{"name":"Cayman Islands","year":2024,"coal":0.0,"gas":0.0,"oil":95.77,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":4.23,"bioenergy":0.0,"other_renewables":0.0},"CAF":{"name":"Central African Republic","year":2023,"coal":0.0,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":100.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"TCD":{"name":"Chad","year":2024,"coal":0.0,"gas":0.0,"oil":94.59,"nuclear":0.0,"hydro":0.0,"wind":2.7,"solar":0.0,"bioenergy":2.7,"other_renewables":0.0},"CHL":{"name":"Chile","year":2025,"coal":17.76,"gas":15.3,"oil":0.56,"nuclear":0.0,"hydro":22.24,"wind":13.08,"solar":25.06,"bioenergy":5.68,"other_renewables":0.31},"CHN":{"name":"China","year":2025,"coal":54.35,"gas":3.16,"oil":0.85,"nuclear":4.61,"hydro":13.2,"wind":10.73,"solar":11.1,"bioenergy":2.01,"other_renewables":0.0},"COL":{"name":"Colombia","year":2025,"coal":6.12,"gas":13.76,"oil":3.1,"nuclear":0.0,"hydro":69.17,"wind":0.17,"solar":5.09,"bioenergy":2.6,"other_renewables":0.0},"COM":{"name":"Comoros","year":2023,"coal":0.0,"gas":0.0,"oil":100.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"COG":{"name":"Congo","year":2024,"coal":0.0,"gas":73.81,"oil":5.31,"nuclear":0.0,"hydro":20.15,"wind":0.0,"solar":0.18,"bioenergy":0.55,"other_renewables":0.0},"COK":{"name":"Cook Islands","year":2024,"coal":0.0,"gas":0.0,"oil":50.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":50.0,"bioenergy":0.0,"other_renewables":0.0},"CRI":{"name":"Costa Rica","year":2025,"coal":0.0,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":74.79,"wind":12.1,"solar":0.7,"bioenergy":0.47,"other_renewables":11.94},"CIV":{"name":"Cote d'Ivoire","year":2024,"coal":0.0,"gas":70.9,"oil":0.19,"nuclear":0.0,"hydro":27.8,"wind":0.0,"solar":0.19,"bioenergy":0.93,"other_renewables":0.0},"HRV":{"name":"Croatia","year":2025,"coal":4.97,"gas":18.78,"oil":0.0,"nuclear":0.0,"hydro":39.25,"wind":21.43,"solar":8.78,"bioenergy":6.8,"other_renewables":0.0},"CUB":{"name":"Cuba","year":2024,"coal":0.0,"gas":13.64,"oil":82.35,"nuclear":0.0,"hydro":0.62,"wind":0.36,"solar":1.24,"bioenergy":1.8,"other_renewables":0.0},"CYP":{"name":"Cyprus","year":2025,"coal":0.0,"gas":0.0,"oil":72.25,"nuclear":0.0,"hydro":0.0,"wind":3.55,"solar":23.18,"bioenergy":1.02,"other_renewables":0.0},"CZE":{"name":"Czechia","year":2025,"coal":35.23,"gas":5.4,"oil":0.21,"nuclear":42.3,"hydro":2.26,"wind":0.75,"solar":5.81,"bioenergy":8.01,"other_renewables":0.0},"COD":{"name":"Democratic Republic of Congo","year":2024,"coal":0.0,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":84.17,"wind":0.0,"solar":15.77,"bioenergy":0.06,"other_renewables":0.0},"DNK":{"name":"Denmark","year":2025,"coal":2.67,"gas":2.43,"oil":3.72,"nuclear":0.0,"hydro":0.06,"wind":57.69,"solar":13.36,"bioenergy":20.06,"other_renewables":0.0},"DJI":{"name":"Djibouti","year":2024,"coal":0.0,"gas":0.0,"oil":65.0,"nuclear":0.0,"hydro":0.0,"wind":35.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"DMA":{"name":"Dominica","year":2023,"coal":0.0,"gas":0.0,"oil":86.67,"nuclear":0.0,"hydro":13.33,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"DOM":{"name":"Dominican Republic","year":2025,"coal":29.06,"gas":26.76,"oil":20.37,"nuclear":0.0,"hydro":6.75,"wind":6.26,"solar":9.92,"bioenergy":0.88,"other_renewables":0.0},"TLS":{"name":"East Timor","year":2024,"coal":0.0,"gas":0.0,"oil":100.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"ECU":{"name":"Ecuador","year":2025,"coal":0.0,"gas":2.68,"oil":17.92,"nuclear":0.0,"hydro":77.9,"wind":0.52,"solar":0.11,"bioenergy":0.87,"other_renewables":0.0},"EGY":{"name":"Egypt","year":2025,"coal":0.0,"gas":79.63,"oil":7.36,"nuclear":0.0,"hydro":6.13,"wind":3.78,"solar":3.1,"bioenergy":0.0,"other_renewables":0.0},"SLV":{"name":"El Salvador","year":2025,"coal":0.0,"gas":0.0,"oil":13.47,"nuclear":0.0,"hydro":30.34,"wind":3.1,"solar":20.28,"bioenergy":12.07,"other_renewables":20.74},"GNQ":{"name":"Equatorial Guinea","year":2024,"coal":0.0,"gas":72.48,"oil":0.67,"nuclear":0.0,"hydro":26.85,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"ERI":{"name":"Eritrea","year":2024,"coal":0.0,"gas":0.0,"oil":88.89,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":11.11,"bioenergy":0.0,"other_renewables":0.0},"EST":{"name":"Estonia","year":2025,"coal":0.0,"gas":1.31,"oil":39.12,"nuclear":0.0,"hydro":0.49,"wind":18.82,"solar":18.49,"bioenergy":21.77,"other_renewables":0.0},"SWZ":{"name":"Eswatini","year":2024,"coal":3.28,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":57.38,"wind":0.0,"solar":4.92,"bioenergy":34.43,"other_renewables":0.0},"ETH":{"name":"Ethiopia","year":2025,"coal":0.0,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":96.46,"wind":3.3,"solar":0.12,"bioenergy":0.03,"other_renewables":0.09},"FLK":{"name":"Falkland Islands","year":2023,"coal":0.0,"gas":0.0,"oil":100.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"FRO":{"name":"Faroe Islands","year":2023,"coal":0.0,"gas":0.0,"oil":53.06,"nuclear":0.0,"hydro":26.53,"wind":18.37,"solar":0.0,"bioenergy":2.04,"other_renewables":0.0},"FJI":{"name":"Fiji","year":2024,"coal":0.0,"gas":0.0,"oil":36.52,"nuclear":0.0,"hydro":52.17,"wind":0.0,"solar":0.87,"bioenergy":10.43,"other_renewables":0.0},"FIN":{"name":"Finland","year":2025,"coal":0.19,"gas":1.15,"oil":2.31,"nuclear":39.88,"hydro":15.12,"wind":27.44,"solar":1.19,"bioenergy":12.56,"other_renewables":0.16},"FRA":{"name":"France","year":2025,"coal":0.31,"gas":3.03,"oil":1.82,"nuclear":68.79,"hydro":10.42,"wind":8.16,"solar":5.58,"bioenergy":1.8,"other_renewables":0.1},"GUF":{"name":"French Guiana","year":2023,"coal":0.0,"gas":0.0,"oil":34.69,"nuclear":0.0,"hydro":53.06,"wind":0.0,"solar":6.12,"bioenergy":6.12,"other_renewables":0.0},"PYF":{"name":"French Polynesia","year":2024,"coal":0.0,"gas":0.0,"oil":65.28,"nuclear":0.0,"hydro":26.39,"wind":0.0,"solar":8.33,"bioenergy":0.0,"other_renewables":0.0},"GAB":{"name":"Gabon","year":2024,"coal":0.0,"gas":44.23,"oil":20.38,"nuclear":0.0,"hydro":35.0,"wind":0.0,"solar":0.0,"bioenergy":0.38,"other_renewables":0.0},"GMB":{"name":"Gambia","year":2024,"coal":0.0,"gas":0.0,"oil":100.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"GEO":{"name":"Georgia","year":2025,"coal":0.0,"gas":20.37,"oil":0.0,"nuclear":0.0,"hydro":78.81,"wind":0.59,"solar":0.22,"bioenergy":0.0,"other_renewables":0.0},"DEU":{"name":"Germany","year":2025,"coal":20.61,"gas":16.52,"oil":3.78,"nuclear":0.0,"hydro":3.91,"wind":27.18,"solar":17.91,"bioenergy":10.1,"other_renewables":0.0},"GHA":{"name":"Ghana","year":2024,"coal":0.0,"gas":61.43,"oil":2.35,"nuclear":0.0,"hydro":35.43,"wind":0.0,"solar":0.7,"bioenergy":0.08,"other_renewables":0.0},"GIB":{"name":"Gibraltar","year":2024,"coal":0.0,"gas":81.82,"oil":18.18,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"GRC":{"name":"Greece","year":2025,"coal":4.7,"gas":38.42,"oil":7.17,"nuclear":0.0,"hydro":5.87,"wind":20.44,"solar":22.17,"bioenergy":1.22,"other_renewables":0.0},"GRL":{"name":"Greenland","year":2024,"coal":0.0,"gas":0.0,"oil":16.67,"nuclear":0.0,"hydro":78.33,"wind":0.0,"solar":0.0,"bioenergy":5.0,"other_renewables":0.0},"GRD":{"name":"Grenada","year":2024,"coal":0.0,"gas":0.0,"oil":100.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"GLP":{"name":"Guadeloupe","year":2023,"coal":13.17,"gas":0.0,"oil":51.5,"nuclear":0.0,"hydro":0.6,"wind":5.99,"solar":6.59,"bioenergy":15.57,"other_renewables":6.59},"GUM":{"name":"Guam","year":2024,"coal":0.0,"gas":0.0,"oil":91.4,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":8.6,"bioenergy":0.0,"other_renewables":0.0},"GTM":{"name":"Guatemala","year":2024,"coal":15.83,"gas":0.0,"oil":15.83,"nuclear":0.0,"hydro":39.9,"wind":2.34,"solar":1.77,"bioenergy":22.17,"other_renewables":2.15},"GIN":{"name":"Guinea","year":2024,"coal":0.0,"gas":0.0,"oil":24.81,"nuclear":0.0,"hydro":74.44,"wind":0.0,"solar":0.74,"bioenergy":0.0,"other_renewables":0.0},"GNB":{"name":"Guinea-Bissau","year":2024,"coal":0.0,"gas":0.0,"oil":100.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"GUY":{"name":"Guyana","year":2024,"coal":0.0,"gas":0.72,"oil":96.38,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":1.45,"bioenergy":1.45,"other_renewables":0.0},"HTI":{"name":"Haiti","year":2024,"coal":0.0,"gas":0.0,"oil":81.4,"nuclear":0.0,"hydro":18.6,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"HND":{"name":"Honduras","year":2024,"coal":0.48,"gas":0.0,"oil":44.07,"nuclear":0.0,"hydro":30.45,"wind":6.01,"solar":9.46,"bioenergy":6.73,"other_renewables":2.8},"HKG":{"name":"Hong Kong","year":2024,"coal":33.65,"gas":64.1,"oil":1.2,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.61,"bioenergy":0.43,"other_renewables":0.0},"HUN":{"name":"Hungary","year":2025,"coal":3.43,"gas":20.25,"oil":0.99,"nuclear":40.01,"hydro":0.57,"wind":1.49,"solar":27.29,"bioenergy":5.94,"other_renewables":0.02},"ISL":{"name":"Iceland","year":2024,"coal":0.0,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":70.66,"wind":0.05,"solar":0.05,"bioenergy":0.0,"other_renewables":29.24},"IND":{"name":"India","year":2025,"coal":70.82,"gas":2.33,"oil":0.2,"nuclear":2.59,"hydro":8.55,"wind":5.0,"solar":9.42,"bioenergy":1.11,"other_renewables":0.0},"IDN":{"name":"Indonesia","year":2024,"coal":61.48,"gas":18.51,"oil":1.92,"nuclear":0.0,"hydro":7.35,"wind":0.13,"solar":0.36,"bioenergy":5.74,"other_renewables":4.51},"IRN":{"name":"Iran","year":2025,"coal":0.18,"gas":89.54,"oil":4.57,"nuclear":1.86,"hydro":3.29,"wind":0.32,"solar":0.23,"bioenergy":0.01,"other_renewables":0.0},"IRQ":{"name":"Iraq","year":2024,"coal":0.0,"gas":52.96,"oil":45.42,"nuclear":0.0,"hydro":1.34,"wind":0.0,"solar":0.29,"bioenergy":0.0,"other_renewables":0.0},"IRL":{"name":"Ireland","year":2025,"coal":0.52,"gas":48.37,"oil":2.97,"nuclear":0.0,"hydro":2.1,"wind":38.0,"solar":4.75,"bioenergy":3.3,"other_renewables":0.0},"ISR":{"name":"Israel","year":2025,"coal":3.41,"gas":79.66,"oil":0.0,"nuclear":0.0,"hydro":0.0,"wind":0.56,"solar":16.18,"bioenergy":0.19,"other_renewables":0.0},"ITA":{"name":"Italy","year":2025,"coal":1.41,"gas":47.24,"oil":2.57,"nuclear":0.0,"hydro":15.75,"wind":8.11,"solar":16.86,"bioenergy":5.9,"other_renewables":2.15},"JAM":{"name":"Jamaica","year":2024,"coal":0.0,"gas":56.91,"oil":30.49,"nuclear":0.0,"hydro":2.44,"wind":5.89,"solar":3.05,"bioenergy":1.22,"other_renewables":0.0},"JPN":{"name":"Japan","year":2025,"coal":32.05,"gas":32.78,"oil":2.47,"nuclear":9.14,"hydro":7.18,"wind":1.25,"solar":9.81,"bioenergy":5.33,"other_renewables":0.0},"JOR":{"name":"Jordan","year":2024,"coal":0.0,"gas":61.98,"oil":13.94,"nuclear":0.0,"hydro":0.08,"wind":7.39,"solar":16.6,"bioenergy":0.0,"other_renewables":0.0},"KAZ":{"name":"Kazakhstan","year":2025,"coal":54.26,"gas":29.4,"oil":1.47,"nuclear":0.0,"hydro":8.5,"wind":4.71,"solar":1.65,"bioenergy":0.0,"other_renewables":0.0},"KEN":{"name":"Kenya","year":2025,"coal":0.0,"gas":0.0,"oil":9.97,"nuclear":0.0,"hydro":20.94,"wind":16.38,"solar":4.63,"bioenergy":2.14,"other_renewables":45.94},"KIR":{"name":"Kiribati","year":2024,"coal":0.0,"gas":0.0,"oil":75.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":25.0,"bioenergy":0.0,"other_renewables":0.0},"KWT":{"name":"Kuwait","year":2025,"coal":0.0,"gas":62.01,"oil":35.76,"nuclear":0.0,"hydro":0.0,"wind":2.01,"solar":0.23,"bioenergy":0.0,"other_renewables":0.0},"KGZ":{"name":"Kyrgyzstan","year":2025,"coal":12.61,"gas":1.71,"oil":0.95,"nuclear":0.0,"hydro":84.73,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"LAO":{"name":"Laos","year":2024,"coal":23.28,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":76.47,"wind":0.0,"solar":0.17,"bioenergy":0.08,"other_renewables":0.0},"LVA":{"name":"Latvia","year":2025,"coal":0.0,"gas":26.16,"oil":0.8,"nuclear":0.0,"hydro":46.73,"wind":3.51,"solar":13.08,"bioenergy":9.73,"other_renewables":0.0},"LBN":{"name":"Lebanon","year":2024,"coal":0.0,"gas":0.0,"oil":56.18,"nuclear":0.0,"hydro":13.11,"wind":0.19,"solar":29.96,"bioenergy":0.56,"other_renewables":0.0},"LSO":{"name":"Lesotho","year":2022,"coal":0.0,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":100.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"LBR":{"name":"Liberia","year":2024,"coal":0.0,"gas":0.0,"oil":45.61,"nuclear":0.0,"hydro":52.63,"wind":0.0,"solar":1.75,"bioenergy":0.0,"other_renewables":0.0},"LBY":{"name":"Libya","year":2024,"coal":0.0,"gas":74.53,"oil":25.44,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.03,"bioenergy":0.0,"other_renewables":0.0},"LTU":{"name":"Lithuania","year":2025,"coal":0.0,"gas":16.54,"oil":5.85,"nuclear":0.0,"hydro":3.94,"wind":44.88,"solar":18.79,"bioenergy":10.01,"other_renewables":0.0},"LUX":{"name":"Luxembourg","year":2025,"coal":0.0,"gas":3.9,"oil":4.55,"nuclear":0.0,"hydro":3.25,"wind":30.52,"solar":30.52,"bioenergy":27.27,"other_renewables":0.0},"MAC":{"name":"Macao","year":2024,"coal":0.0,"gas":62.82,"oil":6.41,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":30.77,"other_renewables":0.0},"MDG":{"name":"Madagascar","year":2024,"coal":20.58,"gas":0.0,"oil":37.04,"nuclear":0.0,"hydro":37.04,"wind":0.0,"solar":4.12,"bioenergy":1.23,"other_renewables":0.0},"MWI":{"name":"Malawi","year":2024,"coal":0.0,"gas":0.0,"oil":4.37,"nuclear":0.0,"hydro":92.35,"wind":0.0,"solar":0.55,"bioenergy":2.73,"other_renewables":0.0},"MYS":{"name":"Malaysia","year":2025,"coal":44.56,"gas":33.76,"oil":1.03,"nuclear":0.0,"hydro":17.52,"wind":0.0,"solar":2.24,"bioenergy":0.89,"other_renewables":0.0},"MDV":{"name":"Maldives","year":2024,"coal":0.0,"gas":0.0,"oil":92.94,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":7.06,"bioenergy":0.0,"other_renewables":0.0},"MLI":{"name":"Mali","year":2024,"coal":0.0,"gas":0.0,"oil":80.54,"nuclear":0.0,"hydro":15.44,"wind":0.0,"solar":2.85,"bioenergy":1.17,"other_renewables":0.0},"MLT":{"name":"Malta","year":2025,"coal":0.0,"gas":83.11,"oil":0.91,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":15.53,"bioenergy":0.46,"other_renewables":0.0},"MTQ":{"name":"Martinique","year":2023,"coal":0.0,"gas":0.0,"oil":74.17,"nuclear":0.0,"hydro":0.0,"wind":1.99,"solar":7.28,"bioenergy":15.89,"other_renewables":0.66},"MRT":{"name":"Mauritania","year":2024,"coal":0.0,"gas":0.0,"oil":77.29,"nuclear":0.0,"hydro":10.14,"wind":4.83,"solar":7.73,"bioenergy":0.0,"other_renewables":0.0},"MUS":{"name":"Mauritius","year":2024,"coal":39.3,"gas":0.0,"oil":42.82,"nuclear":0.0,"hydro":3.23,"wind":0.29,"solar":4.99,"bioenergy":9.38,"other_renewables":0.0},"MEX":{"name":"Mexico","year":2025,"coal":3.05,"gas":61.61,"oil":9.41,"nuclear":2.85,"hydro":8.05,"wind":5.99,"solar":7.38,"bioenergy":1.67,"other_renewables":0.0},"MDA":{"name":"Moldova","year":2025,"coal":0.0,"gas":85.23,"oil":3.57,"nuclear":0.0,"hydro":5.68,"wind":2.6,"solar":2.6,"bioenergy":0.32,"other_renewables":0.0},"MNG":{"name":"Mongolia","year":2025,"coal":85.76,"gas":0.0,"oil":5.88,"nuclear":0.0,"hydro":0.62,"wind":5.57,"solar":2.17,"bioenergy":0.0,"other_renewables":0.0},"MNE":{"name":"Montenegro","year":2025,"coal":24.39,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":58.54,"wind":11.38,"solar":5.69,"bioenergy":0.0,"other_renewables":0.0},"MSR":{"name":"Montserrat","year":2024,"coal":0.0,"gas":0.0,"oil":100.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"MAR":{"name":"Morocco","year":2025,"coal":61.51,"gas":10.92,"oil":3.62,"nuclear":0.0,"hydro":2.04,"wind":16.04,"solar":5.78,"bioenergy":0.09,"other_renewables":0.0},"MOZ":{"name":"Mozambique","year":2024,"coal":0.0,"gas":15.82,"oil":0.76,"nuclear":0.0,"hydro":82.36,"wind":0.0,"solar":0.4,"bioenergy":0.66,"other_renewables":0.0},"MMR":{"name":"Myanmar","year":2024,"coal":5.53,"gas":46.06,"oil":0.55,"nuclear":0.0,"hydro":46.06,"wind":0.0,"solar":0.55,"bioenergy":1.24,"other_renewables":0.0},"NAM":{"name":"Namibia","year":2024,"coal":2.44,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":60.98,"wind":1.22,"solar":35.37,"bioenergy":0.0,"other_renewables":0.0},"NRU":{"name":"Nauru","year":2024,"coal":0.0,"gas":0.0,"oil":80.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":20.0,"bioenergy":0.0,"other_renewables":0.0},"NPL":{"name":"Nepal","year":2024,"coal":0.0,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":98.83,"wind":0.09,"solar":1.08,"bioenergy":0.0,"other_renewables":0.0},"NLD":{"name":"Netherlands","year":2025,"coal":7.08,"gas":34.89,"oil":3.88,"nuclear":2.96,"hydro":0.04,"wind":24.97,"solar":21.12,"bioenergy":5.08,"other_renewables":0.0},"NCL":{"name":"New Caledonia","year":2024,"coal":36.54,"gas":0.0,"oil":36.54,"nuclear":0.0,"hydro":17.31,"wind":1.28,"solar":8.33,"bioenergy":0.0,"other_renewables":0.0},"NZL":{"name":"New Zealand","year":2025,"coal":1.13,"gas":8.86,"oil":1.48,"nuclear":0.0,"hydro":54.85,"wind":9.74,"solar":0.85,"bioenergy":1.32,"other_renewables":21.78},"NIC":{"name":"Nicaragua","year":2024,"coal":0.0,"gas":0.0,"oil":37.61,"nuclear":0.0,"hydro":14.38,"wind":12.39,"solar":0.66,"bioenergy":19.69,"other_renewables":15.27},"NER":{"name":"Niger","year":2024,"coal":17.89,"gas":5.26,"oil":73.68,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":3.16,"bioenergy":0.0,"other_renewables":0.0},"NGA":{"name":"Nigeria","year":2025,"coal":0.0,"gas":68.68,"oil":0.0,"nuclear":0.0,"hydro":30.86,"wind":0.0,"solar":0.31,"bioenergy":0.14,"other_renewables":0.0},"PRK":{"name":"North Korea","year":2024,"coal":34.06,"gas":0.0,"oil":2.58,"nuclear":0.0,"hydro":62.73,"wind":0.0,"solar":0.63,"bioenergy":0.0,"other_renewables":0.0},"MKD":{"name":"North Macedonia","year":2025,"coal":30.65,"gas":19.65,"oil":2.49,"nuclear":0.0,"hydro":19.94,"wind":2.93,"solar":23.75,"bioenergy":0.59,"other_renewables":0.0},"NOR":{"name":"Norway","year":2025,"coal":0.0,"gas":0.56,"oil":0.44,"nuclear":0.0,"hydro":90.03,"wind":8.43,"solar":0.33,"bioenergy":0.15,"other_renewables":0.06},"OMN":{"name":"Oman","year":2025,"coal":0.0,"gas":91.86,"oil":3.6,"nuclear":0.0,"hydro":0.0,"wind":0.19,"solar":4.35,"bioenergy":0.0,"other_renewables":0.0},"PAK":{"name":"Pakistan","year":2025,"coal":14.82,"gas":21.05,"oil":9.22,"nuclear":12.16,"hydro":20.18,"wind":2.94,"solar":18.77,"bioenergy":0.86,"other_renewables":0.0},"PSE":{"name":"Palestine","year":2024,"coal":0.0,"gas":0.0,"oil":60.61,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":39.39,"bioenergy":0.0,"other_renewables":0.0},"PAN":{"name":"Panama","year":2024,"coal":3.72,"gas":20.85,"oil":7.45,"nuclear":0.0,"hydro":53.09,"wind":7.15,"solar":7.37,"bioenergy":0.37,"other_renewables":0.0},"PNG":{"name":"Papua New Guinea","year":2024,"coal":0.0,"gas":19.24,"oil":57.08,"nuclear":0.0,"hydro":21.14,"wind":0.0,"solar":0.21,"bioenergy":0.21,"other_renewables":2.11},"PRY":{"name":"Paraguay","year":2025,"coal":0.0,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":99.47,"wind":0.0,"solar":0.0,"bioenergy":0.53,"other_renewables":0.0},"PER":{"name":"Peru","year":2025,"coal":0.02,"gas":36.12,"oil":0.22,"nuclear":0.0,"hydro":56.06,"wind":3.49,"solar":3.03,"bioenergy":1.08,"other_renewables":0.0},"PHL":{"name":"Philippines","year":2025,"coal":58.67,"gas":17.26,"oil":0.76,"nuclear":0.0,"hydro":10.32,"wind":1.19,"solar":2.44,"bioenergy":1.18,"other_renewables":8.2},"POL":{"name":"Poland","year":2025,"coal":50.4,"gas":14.33,"oil":3.77,"nuclear":0.0,"hydro":0.98,"wind":14.21,"solar":11.28,"bioenergy":4.89,"other_renewables":0.14},"PRT":{"name":"Portugal","year":2025,"coal":0.0,"gas":16.41,"oil":2.64,"nuclear":0.0,"hydro":29.69,"wind":26.74,"solar":17.33,"bioenergy":6.81,"other_renewables":0.39},"PRI":{"name":"Puerto Rico","year":2025,"coal":16.53,"gas":29.5,"oil":47.61,"nuclear":0.0,"hydro":0.25,"wind":1.13,"solar":4.93,"bioenergy":0.05,"other_renewables":0.0},"QAT":{"name":"Qatar","year":2025,"coal":0.0,"gas":95.94,"oil":0.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":3.83,"bioenergy":0.23,"other_renewables":0.0},"REU":{"name":"Reunion","year":2023,"coal":13.03,"gas":0.0,"oil":30.29,"nuclear":0.0,"hydro":12.7,"wind":0.65,"solar":9.45,"bioenergy":33.88,"other_renewables":0.0},"ROU":{"name":"Romania","year":2025,"coal":13.41,"gas":18.71,"oil":0.36,"nuclear":20.48,"hydro":24.27,"wind":11.99,"solar":9.8,"bioenergy":0.98,"other_renewables":0.0},"RUS":{"name":"Russia","year":2025,"coal":18.4,"gas":44.7,"oil":1.21,"nuclear":18.33,"hydro":16.74,"wind":0.31,"solar":0.24,"bioenergy":0.06,"other_renewables":0.0},"RWA":{"name":"Rwanda","year":2024,"coal":15.04,"gas":26.55,"oil":8.85,"nuclear":0.0,"hydro":46.02,"wind":0.0,"solar":3.54,"bioenergy":0.0,"other_renewables":0.0},"SHN":{"name":"Saint Helena","year":2023,"coal":0.0,"gas":0.0,"oil":100.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"KNA":{"name":"Saint Kitts and Nevis","year":2024,"coal":0.0,"gas":0.0,"oil":91.3,"nuclear":0.0,"hydro":0.0,"wind":4.35,"solar":4.35,"bioenergy":0.0,"other_renewables":0.0},"LCA":{"name":"Saint Lucia","year":2024,"coal":0.0,"gas":0.0,"oil":97.5,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":2.5,"bioenergy":0.0,"other_renewables":0.0},"SPM":{"name":"Saint Pierre and Miquelon","year":2023,"coal":0.0,"gas":0.0,"oil":100.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"VCT":{"name":"Saint Vincent and the Grenadines","year":2024,"coal":0.0,"gas":0.0,"oil":86.67,"nuclear":0.0,"hydro":13.33,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"WSM":{"name":"Samoa","year":2024,"coal":0.0,"gas":0.0,"oil":56.25,"nuclear":0.0,"hydro":18.75,"wind":0.0,"solar":18.75,"bioenergy":6.25,"other_renewables":0.0},"STP":{"name":"Sao Tome and Principe","year":2023,"coal":0.0,"gas":0.0,"oil":88.89,"nuclear":0.0,"hydro":11.11,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"SAU":{"name":"Saudi Arabia","year":2024,"coal":0.0,"gas":63.34,"oil":34.5,"nuclear":0.0,"hydro":0.0,"wind":0.35,"solar":1.81,"bioenergy":0.0,"other_renewables":0.0},"SEN":{"name":"Senegal","year":2024,"coal":1.31,"gas":0.26,"oil":78.64,"nuclear":0.0,"hydro":4.06,"wind":5.37,"solar":8.91,"bioenergy":1.44,"other_renewables":0.0},"SRB":{"name":"Serbia","year":2025,"coal":65.05,"gas":6.85,"oil":0.3,"nuclear":0.0,"hydro":22.23,"wind":4.01,"solar":0.44,"bioenergy":1.12,"other_renewables":0.0},"SYC":{"name":"Seychelles","year":2024,"coal":0.0,"gas":0.0,"oil":84.13,"nuclear":0.0,"hydro":0.0,"wind":1.59,"solar":14.29,"bioenergy":0.0,"other_renewables":0.0},"SLE":{"name":"Sierra Leone","year":2024,"coal":0.0,"gas":0.0,"oil":4.76,"nuclear":0.0,"hydro":85.71,"wind":0.0,"solar":9.52,"bioenergy":0.0,"other_renewables":0.0},"SGP":{"name":"Singapore","year":2025,"coal":0.95,"gas":91.12,"oil":2.44,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":2.73,"bioenergy":2.76,"other_renewables":0.0},"SVK":{"name":"Slovakia","year":2025,"coal":1.07,"gas":11.27,"oil":2.51,"nuclear":66.43,"hydro":10.86,"wind":0.0,"solar":2.41,"bioenergy":5.43,"other_renewables":0.03},"SVN":{"name":"Slovenia","year":2025,"coal":14.69,"gas":6.4,"oil":0.0,"nuclear":39.29,"hydro":27.22,"wind":0.07,"solar":10.38,"bioenergy":1.95,"other_renewables":0.0},"SLB":{"name":"Solomon Islands","year":2024,"coal":0.0,"gas":0.0,"oil":90.91,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":9.09,"bioenergy":0.0,"other_renewables":0.0},"SOM":{"name":"Somalia","year":2024,"coal":0.0,"gas":0.0,"oil":79.07,"nuclear":0.0,"hydro":0.0,"wind":2.33,"solar":18.6,"bioenergy":0.0,"other_renewables":0.0},"ZAF":{"name":"South Africa","year":2025,"coal":81.36,"gas":0.0,"oil":0.8,"nuclear":4.21,"hydro":0.75,"wind":4.66,"solar":8.02,"bioenergy":0.19,"other_renewables":0.0},"KOR":{"name":"South Korea","year":2025,"coal":31.14,"gas":27.95,"oil":0.95,"nuclear":29.56,"hydro":0.61,"wind":0.58,"solar":6.05,"bioenergy":3.15,"other_renewables":0.0},"SSD":{"name":"South Sudan","year":2024,"coal":0.0,"gas":0.0,"oil":98.21,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":1.79,"bioenergy":0.0,"other_renewables":0.0},"ESP":{"name":"Spain","year":2025,"coal":0.32,"gas":21.56,"oil":3.48,"nuclear":18.78,"hydro":11.37,"wind":20.41,"solar":21.85,"bioenergy":2.23,"other_renewables":0.0},"LKA":{"name":"Sri Lanka","year":2025,"coal":27.54,"gas":0.0,"oil":10.84,"nuclear":0.0,"hydro":38.2,"wind":5.39,"solar":16.46,"bioenergy":1.33,"other_renewables":0.23},"SDN":{"name":"Sudan","year":2024,"coal":0.0,"gas":0.0,"oil":20.31,"nuclear":0.0,"hydro":77.86,"wind":0.0,"solar":1.08,"bioenergy":0.74,"other_renewables":0.0},"SUR":{"name":"Suriname","year":2024,"coal":0.0,"gas":1.15,"oil":45.98,"nuclear":0.0,"hydro":51.72,"wind":0.0,"solar":0.57,"bioenergy":0.57,"other_renewables":0.0},"SWE":{"name":"Sweden","year":2025,"coal":0.0,"gas":0.06,"oil":1.15,"nuclear":27.59,"hydro":39.97,"wind":22.79,"solar":2.6,"bioenergy":5.83,"other_renewables":0.0},"CHE":{"name":"Switzerland","year":2025,"coal":0.0,"gas":0.42,"oil":1.89,"nuclear":29.87,"hydro":52.28,"wind":0.22,"solar":12.13,"bioenergy":1.6,"other_renewables":1.6},"SYR":{"name":"Syria","year":2024,"coal":0.0,"gas":52.25,"oil":44.21,"nuclear":0.0,"hydro":3.01,"wind":0.0,"solar":0.4,"bioenergy":0.12,"other_renewables":0.0},"TWN":{"name":"Taiwan","year":2025,"coal":36.25,"gas":48.77,"oil":1.61,"nuclear":1.13,"hydro":1.91,"wind":4.16,"solar":5.44,"bioenergy":0.73,"other_renewables":0.0},"TJK":{"name":"Tajikistan","year":2025,"coal":4.66,"gas":0.97,"oil":0.0,"nuclear":0.0,"hydro":94.37,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"TZA":{"name":"Tanzania","year":2024,"coal":0.0,"gas":62.78,"oil":4.3,"nuclear":0.0,"hydro":31.67,"wind":0.0,"solar":0.45,"bioenergy":0.79,"other_renewables":0.0},"THA":{"name":"Thailand","year":2025,"coal":17.83,"gas":65.52,"oil":0.07,"nuclear":0.0,"hydro":4.05,"wind":1.81,"solar":5.3,"bioenergy":5.41,"other_renewables":0.0},"TGO":{"name":"Togo","year":2024,"coal":0.0,"gas":70.42,"oil":0.0,"nuclear":0.0,"hydro":11.27,"wind":0.0,"solar":18.31,"bioenergy":0.0,"other_renewables":0.0},"TON":{"name":"Tonga","year":2024,"coal":0.0,"gas":0.0,"oil":85.71,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":14.29,"bioenergy":0.0,"other_renewables":0.0},"TTO":{"name":"Trinidad and Tobago","year":2024,"coal":0.0,"gas":99.48,"oil":0.42,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.1,"bioenergy":0.0,"other_renewables":0.0},"TUN":{"name":"Tunisia","year":2025,"coal":0.0,"gas":94.94,"oil":1.03,"nuclear":0.0,"hydro":0.04,"wind":1.48,"solar":2.51,"bioenergy":0.0,"other_renewables":0.0},"TUR":{"name":"Turkey","year":2025,"coal":34.31,"gas":22.14,"oil":0.29,"nuclear":0.0,"hydro":16.18,"wind":11.14,"solar":10.53,"bioenergy":2.4,"other_renewables":3.01},"TKM":{"name":"Turkmenistan","year":2024,"coal":0.0,"gas":99.97,"oil":0.0,"nuclear":0.0,"hydro":0.03,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"TCA":{"name":"Turks and Caicos Islands","year":2024,"coal":0.0,"gas":0.0,"oil":96.3,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":3.7,"bioenergy":0.0,"other_renewables":0.0},"UGA":{"name":"Uganda","year":2024,"coal":0.0,"gas":0.0,"oil":2.93,"nuclear":0.0,"hydro":86.06,"wind":0.0,"solar":2.93,"bioenergy":8.09,"other_renewables":0.0},"UKR":{"name":"Ukraine","year":2022,"coal":20.91,"gas":6.44,"oil":0.48,"nuclear":55.76,"hydro":9.88,"wind":1.27,"solar":4.56,"bioenergy":0.7,"other_renewables":0.0},"ARE":{"name":"United Arab Emirates","year":2024,"coal":0.0,"gas":68.27,"oil":0.0,"nuclear":22.92,"hydro":0.0,"wind":0.11,"solar":8.58,"bioenergy":0.12,"other_renewables":0.0},"GBR":{"name":"United Kingdom","year":2025,"coal":0.11,"gas":31.1,"oil":4.37,"nuclear":12.45,"hydro":1.9,"wind":29.37,"solar":6.61,"bioenergy":14.1,"other_renewables":0.0},"USA":{"name":"United States","year":2025,"coal":16.31,"gas":39.99,"oil":0.7,"nuclear":17.36,"hydro":5.35,"wind":10.27,"solar":8.6,"bioenergy":1.02,"other_renewables":0.39},"VIR":{"name":"United States Virgin Islands","year":2023,"coal":0.0,"gas":0.0,"oil":97.06,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":2.94,"bioenergy":0.0,"other_renewables":0.0},"URY":{"name":"Uruguay","year":2025,"coal":0.0,"gas":0.0,"oil":2.18,"nuclear":0.0,"hydro":27.22,"wind":40.62,"solar":5.11,"bioenergy":24.87,"other_renewables":0.0},"UZB":{"name":"Uzbekistan","year":2025,"coal":6.57,"gas":72.32,"oil":1.73,"nuclear":0.0,"hydro":7.27,"wind":4.61,"solar":7.5,"bioenergy":0.0,"other_renewables":0.0},"VUT":{"name":"Vanuatu","year":2023,"coal":0.0,"gas":0.0,"oil":75.0,"nuclear":0.0,"hydro":12.5,"wind":0.0,"solar":12.5,"bioenergy":0.0,"other_renewables":0.0},"VEN":{"name":"Venezuela","year":2024,"coal":0.0,"gas":4.49,"oil":4.37,"nuclear":0.0,"hydro":91.1,"wind":0.02,"solar":0.01,"bioenergy":0.0,"other_renewables":0.0},"VNM":{"name":"Vietnam","year":2025,"coal":48.14,"gas":6.24,"oil":0.2,"nuclear":0.0,"hydro":33.02,"wind":4.64,"solar":7.43,"bioenergy":0.33,"other_renewables":0.0},"ESH":{"name":"Western Sahara","year":2009,"coal":0.0,"gas":0.0,"oil":100.0,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":0.0,"bioenergy":0.0,"other_renewables":0.0},"YEM":{"name":"Yemen","year":2024,"coal":0.0,"gas":1.14,"oil":87.62,"nuclear":0.0,"hydro":0.0,"wind":0.0,"solar":11.24,"bioenergy":0.0,"other_renewables":0.0},"ZMB":{"name":"Zambia","year":2024,"coal":10.8,"gas":0.0,"oil":1.72,"nuclear":0.0,"hydro":86.21,"wind":0.0,"solar":0.86,"bioenergy":0.41,"other_renewables":0.0},"ZWE":{"name":"Zimbabwe","year":2024,"coal":42.88,"gas":0.0,"oil":0.0,"nuclear":0.0,"hydro":55.56,"wind":0.0,"solar":0.39,"bioenergy":1.17,"other_renewables":0.0}}};
+
+// ---- generation-source styling (label + colour) ----
+const SOURCES = [
+  ["coal","Coal","#5b6168"],
+  ["gas","Gas","#e08a3c"],
+  ["oil","Oil","#8c5a3c"],
+  ["nuclear","Nuclear","#c0397f"],
+  ["hydro","Hydro","#2f80c4"],
+  ["wind","Wind","#3fc1c9"],
+  ["solar","Solar","#f4c430"],
+  ["bioenergy","Bioenergy","#5aa454"],
+  ["other_renewables","Other renew.","#9fd27e"],
+];
+
+const PRICES = RAW.prices;            // iso3 -> {name, price}
+let   MIX    = Object.assign({}, RAW.mix); // iso3 -> {name, year, <source>:pct,...}
+
+// ---------- live refresh of generation mix ----------
+const OWID_URL = "https://ourworldindata.org/grapher/share-elec-by-source.csv?v=1&csvType=full&useColumnShortNames=true";
+const COLMAP = {
+  coal:"coal_share_of_electricity__pct", gas:"gas_share_of_electricity__pct",
+  oil:"oil_share_of_electricity__pct", nuclear:"nuclear_share_of_electricity__pct",
+  hydro:"hydro_share_of_electricity__pct", wind:"wind_share_of_electricity__pct",
+  solar:"solar_share_of_electricity__pct", bioenergy:"bioenergy_share_of_electricity__pct",
+  other_renewables:"other_renewables_excluding_bioenergy_share_of_electricity__pct"
+};
+
+async function fetchLiveMix(){
+  const res = await fetch(OWID_URL, {cache:"no-store"});
+  if(!res.ok) throw new Error("HTTP "+res.status);
+  const text = await res.text();
+  const lines = text.trim().split("\n");
+  const header = lines[0].split(",");
+  const ix = {}; header.forEach((h,i)=>ix[h.trim()]=i);
+  const fresh = {};
+  for(let i=1;i<lines.length;i++){
+    const c = lines[i].split(",");
+    const iso = (c[ix["code"]]||"").trim();
+    if(!/^[A-Za-z]{3}$/.test(iso)) continue;
+    const year = parseInt(c[ix["year"]],10);
+    if(!year) continue;
+    if(fresh[iso] && fresh[iso].year >= year) continue;
+    const e = {name:(c[ix["entity"]]||"").trim(), year:year};
+    for(const k in COLMAP){
+      const v = parseFloat(c[ix[COLMAP[k]]]);
+      e[k] = isNaN(v) ? 0 : Math.round(v*100)/100;
+    }
+    fresh[iso] = e;
+  }
+  if(Object.keys(fresh).length < 50) throw new Error("unexpected data shape");
+  return fresh;
+}
+
+function setStatus(kind, text){
+  const el = document.getElementById("status");
+  el.className = kind;
+  document.getElementById("status-text").innerHTML = text;
+}
+
+// ---------- build & render map ----------
+function colorscale(){
+  return [[0.0,"#1a9850"],[0.25,"#a6d96a"],[0.5,"#fee08b"],
+          [0.75,"#fdae61"],[1.0,"#d73027"]];
+}
+
+function renderMap(){
+  const pricedIso = Object.keys(PRICES);
+  const z = pricedIso.map(i => PRICES[i].price);
+  const names = pricedIso.map(i => PRICES[i].name);
+  const zmax = Math.max.apply(null, z);
+
+  const priceTrace = {
+    type:"choropleth", locationmode:"ISO-3",
+    locations: pricedIso, z: z, customdata: names,
+    zmin:0, zmax: zmax, colorscale: colorscale(),
+    reversescale:false, hoverinfo:"none",
+    marker:{line:{color:"#11161d", width:0.4}},
+    colorbar:{
+      title:{text:"USD / kWh", side:"right", font:{color:"#e8edf3",size:12}},
+      tickfont:{color:"#cdd6e0",size:11}, thickness:14, len:0.72,
+      outlinewidth:0, x:1.0, bgcolor:"rgba(0,0,0,0)",
+      tickformat:"$.2f"
+    }
+  };
+
+  // countries that have a generation mix but no price -> grey, still hoverable
+  const greyIso = Object.keys(MIX).filter(i => !PRICES[i]);
+  const greyTrace = {
+    type:"choropleth", locationmode:"ISO-3",
+    locations: greyIso, z: greyIso.map(()=>0),
+    colorscale:[[0,"#3a4452"],[1,"#3a4452"]], showscale:false,
+    hoverinfo:"none", marker:{line:{color:"#11161d", width:0.4}}
+  };
+
+  const layout = {
+    margin:{l:0,r:0,t:0,b:0},
+    paper_bgcolor:"rgba(0,0,0,0)", plot_bgcolor:"rgba(0,0,0,0)",
+    geo:{
+      projection:{type:"natural earth"},
+      showframe:false, showcoastlines:false,
+      showland:true, landcolor:"#222c38",
+      showocean:true, oceancolor:"#0c1219",
+      showcountries:true, countrycolor:"#11161d",
+      lakecolor:"#0c1219", showlakes:true,
+      bgcolor:"rgba(0,0,0,0)"
+    }
+  };
+
+  Plotly.newPlot("map", [greyTrace, priceTrace], layout,
+                 {responsive:true, displayModeBar:false}).then(attachHover);
+}
+
+// ---------- custom tooltip with mix bars ----------
+function tipHtml(iso){
+  const price = PRICES[iso];
+  const mix = MIX[iso];
+  const name = (price && price.name) || (mix && mix.name) || iso;
+  let h = '<div class="tname">'+esc(name)+'</div>';
+  if(price){
+    h += '<div class="tprice">Residential price: <b>$'+price.price.toFixed(3)+'</b> / kWh</div>';
+  }else{
+    h += '<div class="tprice">Residential price: <b>no data</b></div>';
+  }
+  if(mix){
+    h += '<div class="tmix-h">Electricity generation &middot; '+mix.year+'</div>';
+    const rows = SOURCES.map(s => [s[1], s[2], mix[s[0]]||0])
+                        .filter(r => r[2] > 0.05)
+                        .sort((a,b)=>b[2]-a[2]);
+    if(rows.length===0){ h += '<div class="nomix">No breakdown available</div>'; }
+    rows.forEach(r=>{
+      h += '<div class="row">'
+         +   '<span class="sw" style="background:'+r[1]+'"></span>'
+         +   '<span class="lab">'+r[0]+'</span>'
+         +   '<span class="barwrap"><span class="bar" style="width:'
+         +       Math.min(100,r[2]).toFixed(1)+'%;background:'+r[1]+'"></span></span>'
+         +   '<span class="pct">'+r[2].toFixed(1)+'%</span>'
+         + '</div>';
+    });
+  }else{
+    h += '<div class="nomix">Generation mix unavailable</div>';
+  }
+  return h;
+}
+function esc(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+function attachHover(){
+  const tip = document.getElementById("tip");
+  const gd = document.getElementById("map");
+  gd.on("plotly_hover", function(d){
+    const pt = d.points && d.points[0];
+    if(!pt) return;
+    tip.innerHTML = tipHtml(pt.location);
+    tip.style.display = "block";
+    moveTip(d.event);
+  });
+  gd.on("plotly_unhover", function(){ tip.style.display="none"; });
+  gd.addEventListener("mousemove", function(e){
+    if(tip.style.display==="block") moveTip(e);
+  });
+}
+function moveTip(e){
+  if(!e) return;
+  const tip = document.getElementById("tip");
+  const pad = 16, w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = e.clientX + pad, y = e.clientY + pad;
+  if(x + w > window.innerWidth - 8)  x = e.clientX - w - pad;
+  if(y + h > window.innerHeight - 8) y = e.clientY - h - pad;
+  tip.style.left = x+"px"; tip.style.top = y+"px";
+}
+
+// ---------- footer ----------
+document.getElementById("foot-sources").innerHTML =
+  "Price data: "+esc(RAW.priceSource)+" (residential, "+esc(RAW.priceAsOf)+
+  ", a periodic snapshot — no free worldwide live price feed exists). "+
+  "Generation mix: "+esc(RAW.mixSource)+
+  ", refreshed live from Our World in Data each time the map opens "+
+  '(<a href="'+OWID_URL+'" target="_blank" rel="noopener">source CSV</a>).';
+
+// ---------- init ----------
+(async function init(){
+  const overlay = document.getElementById("overlay");
+  try{
+    const fresh = await fetchLiveMix();
+    MIX = fresh;
+    const maxYear = Math.max.apply(null, Object.values(fresh).map(e=>e.year));
+    setStatus("live", "Generation mix: <b>live</b> &middot; latest year "+maxYear+
+                      " &middot; "+Object.keys(fresh).length+" countries");
+  }catch(err){
+    setStatus("offline", "Generation mix: offline snapshot (live refresh failed: "+
+                         esc(err.message)+")");
+  }finally{
+    overlay.style.display = "none";
+    renderMap();
+  }
+})();
+</script>
+</body>
+</html>
