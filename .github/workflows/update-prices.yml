@@ -1,0 +1,48 @@
+name: Update electricity prices
+
+# Rebuilds the electricity map's baked-in data once a month (the generation-mix
+# on hover is already fetched live in the browser; only the price snapshot and
+# the offline fallback data need a periodic rebuild). Commits back to main,
+# which triggers a GitHub Pages redeploy.
+
+on:
+  schedule:
+    - cron: '0 6 1 * *'   # 06:00 UTC on the 1st of each month
+  workflow_dispatch: {}    # also runnable on demand from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-prices
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Rebuild data and map
+        run: |
+          python build_data.py
+          python build_html.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain electricity_map.html mapdata.json)" ]; then
+            git add electricity_map.html mapdata.json
+            git commit -m "Monthly electricity data refresh ($(date -u +%Y-%m-%d))"
+            git push
+            echo "Pushed updated data."
+          else
+            echo "No changes this month."
+          fi

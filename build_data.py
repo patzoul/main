@@ -7,17 +7,24 @@ GPP_URL = "https://www.globalpetrolprices.com/electricity_prices/"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
 
-def download(url, path):
+def download(url, path, required=True):
     if os.path.exists(path):
         print(f"using cached {path}")
-        return
+        return True
     print(f"downloading {path} ...")
-    req = urllib.request.Request(url, headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        open(path, "wb").write(r.read())
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": UA})
+        with urllib.request.urlopen(req, timeout=60) as r:
+            open(path, "wb").write(r.read())
+        return True
+    except Exception as e:
+        if required:
+            raise
+        print(f"WARNING: could not download {path}: {e}")
+        return False
 
-download(OWID_URL, "owid_mix.csv")
-download(GPP_URL, "gpp.html")
+download(OWID_URL, "owid_mix.csv", required=True)
+gpp_ok = download(GPP_URL, "gpp.html", required=False)
 
 # ---------- 1. Parse OWID generation mix (latest year per ISO3) ----------
 SRC_COLS = {
@@ -60,19 +67,24 @@ with open("owid_mix.csv", encoding="utf-8") as f:
         mix[iso] = entry
 
 # ---------- 2. Parse GlobalPetrolPrices residential prices ----------
-html = open("gpp.html", encoding="utf-8").read()
-pat = re.compile(
-    r'<a href="/[^"]*?/electricity_prices/"[^>]*>([^<]+)</a></td>\s*<td>([^<]*)</td>',
-    re.S,
-)
 raw_prices = []
-for m in pat.finditer(html):
-    nm = m.group(1).strip()
-    val = m.group(2).strip()
-    try:
-        raw_prices.append((nm, float(val)))
-    except ValueError:
-        pass
+price_as_of = None
+if gpp_ok and os.path.exists("gpp.html"):
+    html = open("gpp.html", encoding="utf-8").read()
+    cap = re.search(r"<caption>[^<]*?\(([^)]+)\)", html)
+    if cap:
+        price_as_of = cap.group(1).strip()   # e.g. "2023-2026 averages"
+    pat = re.compile(
+        r'<a href="/[^"]*?/electricity_prices/"[^>]*>([^<]+)</a></td>\s*<td>([^<]*)</td>',
+        re.S,
+    )
+    for m in pat.finditer(html):
+        nm = m.group(1).strip()
+        val = m.group(2).strip()
+        try:
+            raw_prices.append((nm, float(val)))
+        except ValueError:
+            pass
 
 # ---------- 3. Aliases: GPP display name -> ISO3 ----------
 ALIAS = {
@@ -157,14 +169,29 @@ for nm, val in raw_prices:
     else:
         unmatched.append(nm)
 
+# Graceful degradation: if the price source was unavailable or its layout
+# changed (so we parsed too little), keep the previously committed prices
+# rather than wiping the map. The monthly job then just refreshes the mix.
+if len(prices) < 50 and os.path.exists("mapdata.json"):
+    prev = json.load(open("mapdata.json", encoding="utf-8"))
+    if len(prev.get("prices", {})) >= len(prices):
+        print(f"WARNING: GlobalPetrolPrices unavailable/changed — keeping previous "
+              f"{len(prev['prices'])} prices from mapdata.json")
+        prices = prev["prices"]
+        price_as_of = price_as_of or prev.get("priceAsOf")
+        unmatched = []
+
+if len(prices) < 50:
+    sys.exit("ERROR: no usable price data (source failed and no previous snapshot to fall back on)")
+
 # ---------- 4. Report + write ----------
 print(f"OWID mix countries: {len(mix)}  (latest year sample: USA={mix.get('USA',{}).get('year')})")
-print(f"GPP price rows parsed: {len(raw_prices)}  matched: {len(prices)}")
+print(f"GPP price rows parsed: {len(raw_prices)}  prices used: {len(prices)}")
 if unmatched:
     print("UNMATCHED price countries:", unmatched)
 
 out = {
-    "priceAsOf": "2023-2026 average",
+    "priceAsOf": price_as_of or "periodic snapshot",
     "priceSource": "GlobalPetrolPrices.com",
     "mixSource": "Our World in Data / Ember & Energy Institute",
     "mixSourceYearMax": max((e["year"] for e in mix.values()), default=None),
@@ -173,4 +200,4 @@ out = {
 }
 with open("mapdata.json", "w", encoding="utf-8") as f:
     json.dump(out, f, separators=(",", ":"), ensure_ascii=False)
-print("wrote mapdata.json", f"prices={len(prices)} mix={len(mix)}")
+print("wrote mapdata.json", f"prices={len(prices)} mix={len(mix)} as_of={out['priceAsOf']}")
