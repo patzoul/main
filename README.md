@@ -26,9 +26,17 @@ aisstream.io API key — entered once in the browser and stored only in
 
 The submarine cable map plots all cable routes and landing points from
 `cable-geo.json` / `landing-point-geo.json` (© TeleGeography, CC BY-NC-SA 3.0),
-with markers for ~8 documented cable-damage incidents from 2024–2025 —
-clicking an incident in the side panel flies to its location and opens a
-popup with details and sources.
+with markers for documented cable-damage incidents loaded from
+`cable_incidents.json` — clicking an incident in the side panel flies to its
+location and opens a popup with details and sources.
+
+The incident list is hand-curated from public news reporting (there is no
+structured feed for cable damage). A monthly GitHub Actions job
+(`.github/workflows/update-cable-incidents.yml`) uses the Claude Code Action to
+research candidate new incidents and **open a pull request** for human review —
+it never commits to `main`. One-time setup: add an `ANTHROPIC_API_KEY` repo
+secret, and enable Settings → Actions → General → "Allow GitHub Actions to
+create and approve pull requests".
 
 The electricity map (Plotly choropleth) colours each country by its residential
 electricity price (USD/kWh); countries without price data are greyed. The price

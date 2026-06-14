@@ -216,74 +216,7 @@
   const landingLayer = L.layerGroup().addTo(map);
   const incidentLayer = L.layerGroup().addTo(map);
 
-  // ---- Documented damage incidents ----
-  const incidents = [
-    {
-      lat: 14.801, lon: 41.738,
-      date: 'Feb 24, 2024',
-      title: 'Red Sea — AAE-1, Seacom/TGN-Eurasia &amp; EIG severed near Yemen',
-      cables: ['AAE-1', 'Seacom / TGN-Eurasia', 'EIG'],
-      desc: 'Three major Europe–Asia cables were cut in the Red Sea, disrupting an estimated 25% of traffic between the two continents. Houthi forces in Yemen were initially blamed but denied responsibility. The most credible account points to the UK-owned cargo ship Rubymar, struck by a Houthi missile on Feb 18 and left adrift; as it slowly sank over the following days its dragging anchor chain is believed to have sliced through the cable corridor.',
-      source: 'Reuters, CBS News, Al Jazeera, Kentik'
-    },
-    {
-      lat: 56.470, lon: 19.125,
-      date: 'Nov 17–18, 2024',
-      title: 'Baltic Sea — C-Lion1 &amp; BCS East-West Interlink severed',
-      cables: ['C-Lion1', 'BCS East-West Interlink'],
-      desc: 'Within about 24 hours, two cables were severed: the Sweden–Lithuania BCS East-West Interlink on Nov 17, then the Finland–Germany C-Lion1 on Nov 18. Suspicion centered on the Chinese-flagged bulk carrier Yi Peng 3, which had left the Russian port of Ust-Luga days earlier; tracking data placed it at both breach sites, reportedly dragging its anchor for over 100 nautical miles. The ship was held in the Kattegat Strait for over a month before being released on Dec 21, 2024. Western intelligence officials say they are confident the ship caused the damage, though no government formally attributed it to deliberate sabotage.',
-      source: 'DCD, Lieber Institute (West Point), Carnegie Endowment'
-    },
-    {
-      lat: 60.00, lon: 26.20,
-      date: 'Dec 25, 2024',
-      title: 'Gulf of Finland — Estlink 2 power cable &amp; 4 telecom cables cut',
-      cables: ['Estlink 2 (power)', '4× telecom cables (incl. Elisa)'],
-      desc: 'On Christmas Day 2024 the Estonia–Finland Estlink 2 power cable failed at 12:26 EET about 55 km south of Loviisa, halving cross-border transmission capacity. The same day, four nearby telecom cables — two operated by Finnish carrier Elisa — were also found severed. Finnish authorities boarded and detained the Cook Islands-flagged tanker Eagle S, believed to be part of Russia\'s "shadow fleet," and later charged its master and two mates with aggravated criminal mischief for allegedly dragging a heavy anchor across the seabed for tens of kilometers.',
-      source: 'Finnish Government, NPR, Newsweek, Submarine Networks'
-    },
-    {
-      lat: -5.237, lon: 11.250,
-      date: 'Mar 13–14, 2024',
-      title: 'West Africa — WACS, ACE, SAT-3/WASC &amp; MainOne cut',
-      cables: ['WACS', 'ACE', 'SAT-3/WASC', 'MainOne'],
-      desc: 'Four major cables along the West African coast were cut within a day of each other, cutting internet traffic by more than half across 13 countries including Nigeria, Ghana, Côte d\'Ivoire, Cameroon and South Africa. The leading theory was an underwater landslide on the continental shelf near the Congo Canyon, a known site of seabed turbidity currents — though some reports placed the slide further west, off Côte d\'Ivoire. Restoration took until early April 2024, slowing banking systems and cloud-reliant businesses for weeks.',
-      source: 'Internet Society, Wikipedia (2024 Internet outage in Africa)'
-    },
-    {
-      lat: 25.755, lon: 121.612,
-      date: 'Jan 3, 2025',
-      title: 'Taiwan — TPE cable cut near Yehliu, north of Taipei',
-      cables: ['Trans-Pacific Express (TPE)'],
-      desc: 'Four fibers of the Trans-Pacific Express cable, operated by Chunghwa Telecom, were severed off Taiwan\'s northern coast near Yehliu. Taiwan\'s Coast Guard intercepted the Shunxin-39 — a Chinese-crewed vessel registered under shifting Cameroon/Tanzania flags and at least two different names — which appeared to have dragged its anchor in a deliberate crisscross pattern across the cable. The ship was released to continue to Busan, South Korea after a brief inspection; backup routing meant no service disruption.',
-      source: 'Taiwan Coast Guard, The Diplomat, VOA, Global Taiwan Institute'
-    },
-    {
-      lat: 23.574, lon: 119.576,
-      date: 'Feb 25, 2025',
-      title: 'Taiwan — TPKM3 cable severed near Penghu',
-      cables: ['Taiwan-Penghu-Kinmen-Matsu No.3 (TPKM3)'],
-      desc: 'The Taiwan-Penghu No. 3 cable, operated by Chunghwa Telecom, was completely severed. Taiwan\'s Coast Guard escorted the Togo-flagged cargo ship Hong Tai 58 — crewed entirely by Chinese nationals — to port the same day. A Tainan court later found its captain had deliberately entered a no-anchor zone and dragged a long anchor chain across the seabed, severing the cable; he was sentenced to three years in prison (under appeal). The telecom provider said service was not disrupted.',
-      source: 'Taiwan Coast Guard, Tainan District Court, SAFETY4SEA'
-    },
-    {
-      lat: 16.534, lon: 40.388,
-      date: 'Mar 4, 2025',
-      title: 'Red Sea — PEACE cable cut',
-      cables: ['PEACE Cable'],
-      desc: 'The PEACE cable (Pakistan &amp; East Africa Connecting Europe) was cut roughly 1,450 km from Zafarana, Egypt, within Sudan\'s exclusive economic zone, disrupting connectivity for Somalia and parts of East Africa. The cause was not confirmed, but the area has seen repeated anchor-drag damage from ships transiting Houthi-controlled waters. The AAE-1 cable, cut again nearby in December 2024, was still under repair at the time. PEACE was restored on Mar 26, 2025 — a notably fast turnaround for the region.',
-      source: 'Submarine Networks, SubTel Forum, TechAfrica News'
-    },
-    {
-      lat: 21.482, lon: 39.183,
-      date: 'Sep 6, 2025',
-      title: 'Red Sea — SMW4, IMEWE &amp; FALCON cut near Jeddah',
-      cables: ['SeaMeWe-4', 'IMEWE', 'FALCON GCX'],
-      desc: 'Cables were severed near Jeddah, Saudi Arabia, knocking out segments of SeaMeWe-4 (operated by Tata Communications) and IMEWE, while Kuwaiti officials confirmed damage to the FALCON GCX cable as well. The disruption raised latency for cloud services — including Microsoft Azure — across India, Pakistan and the UAE for about a day before traffic was rerouted. Early assessments pointed to ordinary commercial shipping activity, likely an anchor dragged across the seabed, rather than deliberate sabotage. Physical repairs were expected to take weeks to months.',
-      source: 'NBC News, Network World, Gulf Business'
-    }
-  ];
-
+  // ---- Documented damage incidents (loaded from cable_incidents.json) ----
   function incidentPopupHtml(inc) {
     return `<div style="max-width:280px">
       <div class="inc-date">${inc.date}</div>
@@ -294,32 +227,41 @@
     </div>`;
   }
 
-  const incidentMarkers = incidents.map(inc => {
-    const icon = L.divIcon({
-      className: '',
-      html: '<div class="incident-marker"><div class="ring"></div><div class="core"></div></div>',
-      iconSize: [22, 22], iconAnchor: [11, 11]
-    });
-    const m = L.marker([inc.lat, inc.lon], { icon });
-    m.bindPopup(incidentPopupHtml(inc));
-    incidentLayer.addLayer(m);
-    return m;
-  });
-  document.getElementById('incidentCount').textContent = incidents.length;
+  let incidentMarkers = [];
+  fetch('cable_incidents.json')
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(incidents => {
+      incidentMarkers = incidents.map(inc => {
+        const icon = L.divIcon({
+          className: '',
+          html: '<div class="incident-marker"><div class="ring"></div><div class="core"></div></div>',
+          iconSize: [22, 22], iconAnchor: [11, 11]
+        });
+        const m = L.marker([inc.lat, inc.lon], { icon });
+        m.bindPopup(incidentPopupHtml(inc));
+        incidentLayer.addLayer(m);
+        return m;
+      });
+      document.getElementById('incidentCount').textContent = incidents.length;
 
-  const listEl = document.getElementById('incidentList');
-  incidents.forEach((inc, i) => {
-    const div = document.createElement('div');
-    div.className = 'inc-item';
-    div.innerHTML = `<div class="d">${inc.date}</div><div class="t">${inc.title}</div>`;
-    div.addEventListener('click', () => {
-      const zoom = 6;
-      const targetPoint = map.project([inc.lat, inc.lon], zoom).subtract([150, 0]);
-      map.flyTo(map.unproject(targetPoint, zoom), zoom);
-      setTimeout(() => incidentMarkers[i].openPopup(), 500);
+      const listEl = document.getElementById('incidentList');
+      incidents.forEach((inc, i) => {
+        const div = document.createElement('div');
+        div.className = 'inc-item';
+        div.innerHTML = `<div class="d">${inc.date}</div><div class="t">${inc.title}</div>`;
+        div.addEventListener('click', () => {
+          const zoom = 6;
+          const targetPoint = map.project([inc.lat, inc.lon], zoom).subtract([150, 0]);
+          map.flyTo(map.unproject(targetPoint, zoom), zoom);
+          setTimeout(() => incidentMarkers[i].openPopup(), 500);
+        });
+        listEl.appendChild(div);
+      });
+    })
+    .catch(err => {
+      console.error('Failed to load incidents:', err);
+      document.getElementById('incidentCount').textContent = '0';
     });
-    listEl.appendChild(div);
-  });
 
   // ---- Cable routes ----
   fetch('cable-geo.json')

@@ -1,0 +1,84 @@
+name: Update cable incidents
+
+# Monthly AI research pass that proposes new submarine-cable damage incidents.
+# Unlike the electricity-price job, there is NO structured feed to scrape:
+# incidents are curated from news reporting. So this uses the Claude Code Action
+# to research, draft entries, and OPEN A PULL REQUEST for human review — it never
+# commits to main on its own. A maintainer verifies sources and merges.
+#
+# One-time setup required (see README):
+#   1. Add repo secret ANTHROPIC_API_KEY (Settings > Secrets and variables > Actions).
+#   2. Enable Settings > Actions > General > "Allow GitHub Actions to create and
+#      approve pull requests".
+
+on:
+  schedule:
+    - cron: '0 7 1 * *'   # 07:00 UTC on the 1st of each month
+  workflow_dispatch: {}    # also runnable on demand from the Actions tab
+
+permissions:
+  contents: write          # push the proposal branch
+  pull-requests: write     # open the PR
+
+concurrency:
+  group: update-cable-incidents
+  cancel-in-progress: false
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Research new incidents and open a PR
+        uses: anthropics/claude-code-action@v1   # pin to a SHA for stricter supply-chain safety
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_args: >-
+            --model claude-sonnet-4-6
+            --max-turns 40
+            --allowedTools "WebSearch,WebFetch,Read,Edit,Write,Bash(git:*),Bash(gh:*),Bash(python3:*)"
+          prompt: |
+            You maintain the submarine-cable damage-incident dataset for a public map:
+            the file `cable_incidents.json` at the repo root. Your job is to research
+            whether any NEW, well-documented incidents have occurred that are not yet in
+            the file, and if so, open a pull request adding them. Do NOT commit to main.
+
+            Steps:
+            1. Run `date -u` to learn today's date. Read `cable_incidents.json` to see the
+               existing entries and the most recent incident date.
+            2. Use WebSearch / WebFetch to look for submarine (undersea) telecom or power
+               cable damage, cuts, or severances reported since the latest entry — and any
+               well-documented incident from roughly the past 6 months that is missing.
+               Good sources: Reuters, AP, BBC, national coast guards/governments, Submarine
+               Networks / SubTel Forum, Data Center Dynamics, TeleGeography, and the relevant
+               Wikipedia incident articles.
+            3. For each genuinely new incident, build an object matching the EXACT existing
+               schema and field style:
+                 - "lat","lon": a representative point near the reported break location
+                   (approximate from the named sea/coast if exact coords are unknown).
+                 - "date": same format as existing, e.g. "Sep 6, 2025" or "Nov 17–18, 2024".
+                 - "title": "Region — short summary" (e.g. "Baltic Sea — <cables> severed").
+                 - "cables": array of affected cable system names.
+                 - "desc": 2–5 neutral sentences. State the suspected cause, but if it is
+                   disputed or unconfirmed, say so plainly (e.g. "cause not confirmed",
+                   "no government formally attributed it to sabotage"). Do not assert blame
+                   beyond what sources support.
+                 - "source": comma-separated list of the outlets you actually used.
+            4. STRICT accuracy rules: add an incident ONLY if backed by at least two
+               independent, reputable sources. Never invent incidents, cables, coordinates,
+               dates, or sources. If you are unsure, leave it out — a smaller correct PR is
+               better than a speculative one.
+            5. Append the new objects to the JSON array. Keep the file VALID JSON (verify with
+               `python3 -c "import json; json.load(open('cable_incidents.json'))"`). Edit ONLY
+               `cable_incidents.json` — do not touch any other file.
+            6. If you found NO new incidents, make no changes and do not open a PR; just print
+               "No new incidents.".
+            7. If you added incidents: create a branch named `cable-incidents/update-<YYYY-MM-DD>`,
+               commit only `cable_incidents.json` with a clear message, push it, and open a PR
+               against `main` with `gh pr create`. In the PR body, list each added incident with
+               its date, cables, and sources, and add the note: "Auto-researched draft — please
+               verify sources and coordinates before merging."
