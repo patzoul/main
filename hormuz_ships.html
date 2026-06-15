@@ -367,8 +367,11 @@
 
   // ---- WebSocket connection ----
   const WS_URL = 'wss://stream.aisstream.io/v0/stream';
-  // Strait of Hormuz and approaches (Persian Gulf side + Gulf of Oman side)
-  const BBOX = [[25.0, 54.5], [27.5, 58.0]];
+  // Strait of Hormuz and its approaches. Extended south to ~24.0N to cover
+  // the OPL Fujairah / Khor Fakkan anchorage (one of the world's largest,
+  // typically hundreds of waiting tankers), plus the Gulf of Oman and
+  // Persian Gulf shipping lanes either side of the chokepoint.
+  const BBOX = [[24.0, 53.8], [27.6, 58.5]];
 
   let ws = null;
   let messageCount = 0;
