@@ -15,7 +15,7 @@
       position: absolute; top: 14px; left: 14px; z-index: 1000;
       background: rgba(10, 10, 25, 0.90);
       border: 1px solid rgba(120, 190, 255, 0.30);
-      border-radius: 10px; padding: 14px 18px; min-width: 250px;
+      border-radius: 10px; padding: 11px 14px; width: 215px;
       backdrop-filter: blur(10px);
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
@@ -24,12 +24,12 @@
       color: #7eb8f7; margin-bottom: 2px; text-transform: uppercase;
     }
     #panel .subtitle {
-      font-size: 11px; color: #667; margin-bottom: 12px;
+      font-size: 11px; color: #667; margin-bottom: 9px;
     }
 
     .status-row {
       display: flex; align-items: center; gap: 7px;
-      font-size: 12px; color: #aab; margin-bottom: 10px;
+      font-size: 12px; color: #aab; margin-bottom: 8px;
     }
     .status-dot {
       width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
@@ -67,28 +67,28 @@
     #liveStats { display: none; }
     .stat-row {
       display: flex; justify-content: space-between;
-      font-size: 12px; color: #aab; margin-bottom: 4px;
+      font-size: 11px; color: #aab; margin-bottom: 2px;
     }
-    .stat-row b { color: #7eb8f7; font-size: 13px; }
-    .stat-row.total { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-    .stat-row.total b { font-size: 16px; }
+    .stat-row b { color: #7eb8f7; font-size: 12px; }
+    .stat-row.total { padding-bottom: 6px; margin-bottom: 5px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .stat-row.total b { font-size: 14px; }
     .stat-row .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
-    .stat-row.toggle { cursor: pointer; user-select: none; padding: 2px 5px; margin: 0 -5px 4px; border-radius: 4px; transition: background 0.12s; }
+    .stat-row.toggle { cursor: pointer; user-select: none; padding: 1px 5px; margin: 0 -5px 2px; border-radius: 4px; transition: background 0.12s; }
     .stat-row.toggle:hover { background: rgba(255,255,255,0.07); }
     .stat-row.toggle.off { opacity: 0.4; }
     .stat-row.toggle.off span { text-decoration: line-through; }
     .stat-row.toggle.off .swatch { text-decoration: none; }
-    .toggle-hint { font-size: 10px; color: #556; margin: 2px 0 2px; }
+    .toggle-hint { font-size: 10px; color: #556; margin: 0 0 4px; }
     #liveStats .footer-row {
-      margin-top: 10px; padding-top: 8px;
+      margin-top: 8px; padding-top: 7px;
       border-top: 1px solid rgba(255,255,255,0.08);
       font-size: 10px; color: #556;
     }
     #changeKeyLink { color: #5a7fa8; cursor: pointer; text-decoration: underline; }
     .info-note {
-      margin-top: 10px; padding-top: 8px;
+      margin-top: 8px; padding-top: 7px;
       border-top: 1px solid rgba(255,255,255,0.08);
-      font-size: 10px; color: #667; line-height: 1.6;
+      font-size: 9px; color: #667; line-height: 1.5;
     }
     .info-note b { color: #99b; }
 
@@ -153,10 +153,9 @@
       <span id="changeKeyLink">Change API key</span>
     </div>
     <div class="info-note">
-      Coverage is densest where volunteers run AIS receivers (Europe, East
-      Asia, the Americas' coasts). Open ocean and under-covered regions may
-      look empty — aisstream is terrestrial and crowdsourced, with no
-      satellite feed. Vessels drop off after 30 min without an update.
+      Crowdsourced terrestrial AIS (no satellite), so open ocean and
+      under-covered regions may look empty. Vessels drop off after 30 min
+      without an update.
     </div>
   </div>
 </div>
