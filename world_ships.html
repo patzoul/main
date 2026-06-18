@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>World — Live Ship Traffic</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0d0d1a; }
+    #map { width: 100vw; height: 100vh; background: #0a0a14; }
+
+    #panel {
+      position: absolute; top: 14px; left: 14px; z-index: 1000;
+      background: rgba(10, 10, 25, 0.90);
+      border: 1px solid rgba(120, 190, 255, 0.30);
+      border-radius: 10px; padding: 14px 18px; min-width: 250px;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    #panel h2 {
+      font-size: 13px; font-weight: 700; letter-spacing: 1px;
+      color: #7eb8f7; margin-bottom: 2px; text-transform: uppercase;
+    }
+    #panel .subtitle {
+      font-size: 11px; color: #667; margin-bottom: 12px;
+    }
+
+    .status-row {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12px; color: #aab; margin-bottom: 10px;
+    }
+    .status-dot {
+      width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+      background: #f1c40f;
+    }
+    .status-dot.connecting { background: #f1c40f; animation: pulse 1.2s infinite; }
+    .status-dot.live { background: #2ecc71; animation: pulse 1.6s infinite; }
+    .status-dot.warn { background: #f1c40f; }
+    .status-dot.error { background: #e74c3c; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(255,255,255,0.0); }
+      50% { opacity: 0.5; }
+    }
+
+    /* API key entry */
+    #keyForm { display: none; }
+    #keyForm p { font-size: 11px; color: #99a; line-height: 1.5; margin-bottom: 10px; }
+    #keyForm a { color: #7eb8f7; }
+    #apiKeyInput {
+      width: 100%; padding: 7px 9px; font-size: 12px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(120,190,255,0.25);
+      border-radius: 6px; color: #dde; margin-bottom: 8px; outline: none;
+    }
+    #apiKeyInput:focus { border-color: #7eb8f7; }
+    #connectBtn {
+      width: 100%; padding: 8px; font-size: 12px; font-weight: 700;
+      letter-spacing: 0.5px; text-transform: uppercase;
+      background: #7eb8f7; color: #0d0d1a; border: none; border-radius: 6px;
+      cursor: pointer;
+    }
+    #connectBtn:hover { background: #9ecbff; }
+    #keyForm .note { font-size: 10px; color: #556; margin-top: 8px; line-height: 1.5; }
+
+    /* Live stats */
+    #liveStats { display: none; }
+    .stat-row {
+      display: flex; justify-content: space-between;
+      font-size: 12px; color: #aab; margin-bottom: 4px;
+    }
+    .stat-row b { color: #7eb8f7; font-size: 13px; }
+    .stat-row.total { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .stat-row.total b { font-size: 16px; }
+    .stat-row .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+    #liveStats .footer-row {
+      margin-top: 10px; padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 10px; color: #556;
+    }
+    #changeKeyLink { color: #5a7fa8; cursor: pointer; text-decoration: underline; }
+    .info-note {
+      margin-top: 10px; padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      font-size: 10px; color: #667; line-height: 1.6;
+    }
+    .info-note b { color: #99b; }
+
+    .source-note {
+      position: absolute; bottom: 8px; left: 14px; z-index: 1000;
+      font-size: 10px; color: #445;
+    }
+    .source-note a { color: #5a7fa8; }
+
+    /* Leaflet tooltip override */
+    .leaflet-tooltip {
+      background: rgba(255,255,255,0.97) !important;
+      border: none !important;
+      border-radius: 8px !important;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.3) !important;
+      padding: 0 !important;
+    }
+    .leaflet-tooltip-bottom::before, .leaflet-tooltip-top::before { border-top-color: rgba(255,255,255,0.97) !important; border-bottom-color: rgba(255,255,255,0.97) !important; }
+    .tt { padding: 9px 12px; min-width: 190px; }
+    .tt-place { font-size: 12px; font-weight: 700; color: #222; margin-bottom: 6px; line-height: 1.3; }
+    .tt-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
+    .tt-key { font-size: 11px; color: #888; }
+    .tt-val { font-size: 11px; font-weight: 600; color: #333; }
+  </style>
+</head>
+<body>
+
+<div id="panel">
+  <h2>World Ship Traffic</h2>
+  <div class="subtitle">Live AIS · aisstream.io</div>
+
+  <div class="status-row">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Not connected</span>
+  </div>
+
+  <div id="keyForm">
+    <p>
+      This map streams live AIS positions worldwide from
+      <a href="https://aisstream.io" target="_blank">aisstream.io</a>.
+      Enter your free API key to start.
+    </p>
+    <input type="text" id="apiKeyInput" placeholder="aisstream.io API key" autocomplete="off" spellcheck="false">
+    <button id="connectBtn">Connect</button>
+    <div class="note">
+      Your key is stored only in this browser's local storage and sent
+      directly to aisstream.io over a secure WebSocket. It is never written
+      into this page's code or any file.
+    </div>
+  </div>
+
+  <div id="liveStats">
+    <div class="stat-row total"><span>Tracked vessels</span><b id="vesselCount">0</b></div>
+    <div class="stat-row"><span><span class="swatch" style="background:#e74c3c"></span>Tankers</span><b id="cntTanker">0</b></div>
+    <div class="stat-row"><span><span class="swatch" style="background:#3498db"></span>Cargo</span><b id="cntCargo">0</b></div>
+    <div class="stat-row"><span><span class="swatch" style="background:#2ecc71"></span>Passenger</span><b id="cntPassenger">0</b></div>
+    <div class="stat-row"><span><span class="swatch" style="background:#f1c40f"></span>Fishing</span><b id="cntFishing">0</b></div>
+    <div class="stat-row"><span><span class="swatch" style="background:#95a5a6"></span>Other / unknown</span><b id="cntOther">0</b></div>
+    <div class="footer-row">
+      Messages received: <span id="msgCount">0</span><br>
+      <span id="changeKeyLink">Change API key</span>
+    </div>
+    <div class="info-note">
+      Coverage is densest where volunteers run AIS receivers (Europe, East
+      Asia, the Americas' coasts). Open ocean and under-covered regions may
+      look empty — aisstream is terrestrial and crowdsourced, with no
+      satellite feed. Vessels drop off after 30 min without an update.
+    </div>
+  </div>
+</div>
+
+<div class="source-note">
+  Data: <a href="https://aisstream.io" target="_blank">aisstream.io</a> (live AIS) ·
+  positions update as vessels report
+</div>
+
+<div id="map"></div>
+
+<script>
+  const map = L.map('map', { preferCanvas: true, zoomControl: true, worldCopyJump: true })
+               .setView([25, 10], 3);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CartoDB</a> | Data: <a href="https://aisstream.io" style="color:#7eb8f7">aisstream.io</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(map);
+
+  // ---- Ship type classification ----
+  function shipTypeInfo(type) {
+    if (type == null) return { label: 'Unknown', color: '#95a5a6', cat: 'other' };
+    if (type >= 80 && type <= 89) return { label: 'Tanker', color: '#e74c3c', cat: 'tanker' };
+    if (type >= 70 && type <= 79) return { label: 'Cargo', color: '#3498db', cat: 'cargo' };
+    if (type >= 60 && type <= 69) return { label: 'Passenger', color: '#2ecc71', cat: 'passenger' };
+    if (type >= 40 && type <= 49) return { label: 'High-speed craft', color: '#1abc9c', cat: 'other' };
+    if (type >= 30 && type <= 39) return { label: 'Fishing / Towing', color: '#f1c40f', cat: 'fishing' };
+    if (type >= 50 && type <= 59) return { label: 'Tug / Pilot / Special', color: '#9b59b6', cat: 'other' };
+    return { label: 'Other', color: '#95a5a6', cat: 'other' };
+  }
+
+  function fmtSpeed(sog) {
+    return (sog != null && sog < 102.3) ? sog.toFixed(1) + ' kn' : '—';
+  }
+  function fmtCourse(cog) {
+    return (cog != null && cog < 360) ? cog.toFixed(0) + '°' : '—';
+  }
+
+  function tooltipHtml(v) {
+    const info = shipTypeInfo(v.type);
+    const name = v.name || `MMSI ${v.mmsi}`;
+    const ago = Math.max(0, Math.round((Date.now() - v.lastUpdate) / 1000));
+    let rows = `
+        <span class="tt-key">Type</span><span class="tt-val">${info.label}</span>
+        <span class="tt-key">MMSI</span><span class="tt-val">${v.mmsi}</span>
+        <span class="tt-key">Speed</span><span class="tt-val">${fmtSpeed(v.sog)}</span>
+        <span class="tt-key">Course</span><span class="tt-val">${fmtCourse(v.cog)}</span>`;
+    if (v.dest) rows += `<span class="tt-key">Destination</span><span class="tt-val">${v.dest}</span>`;
+    rows += `<span class="tt-key">Updated</span><span class="tt-val">${ago}s ago</span>`;
+    return `<div class="tt"><div class="tt-place">${name}</div><div class="tt-grid">${rows}</div></div>`;
+  }
+
+  // ---- Vessel state ----
+  // At global scale there can be many thousands of vessels, so each is a
+  // lightweight canvas circleMarker (no rotating icon, no trail polyline).
+  const vessels = new Map(); // mmsi -> { ..., marker }
+
+  function updateVesselMarker(v) {
+    const info = shipTypeInfo(v.type);
+    if (!v.marker) {
+      v.marker = L.circleMarker([v.lat, v.lon], {
+        radius: 3, color: info.color, weight: 0.5,
+        fillColor: info.color, fillOpacity: 0.85, opacity: 0.9
+      }).addTo(map);
+      v.marker.bindTooltip(tooltipHtml(v), { sticky: true });
+    } else {
+      v.marker.setLatLng([v.lat, v.lon]);
+      v.marker.setStyle({ color: info.color, fillColor: info.color });
+      v.marker.setTooltipContent(tooltipHtml(v));
+    }
+  }
+
+  function handleMessage(data) {
+    const meta = data.MetaData;
+    if (!meta) return;
+    const mmsi = meta.MMSI;
+    let v = vessels.get(mmsi);
+    if (!v) {
+      v = {
+        mmsi,
+        name: (meta.ShipName || '').trim() || null,
+        type: null, dest: null,
+        lat: meta.latitude, lon: meta.longitude,
+        cog: null, sog: null,
+        lastUpdate: Date.now(),
+        marker: null
+      };
+      vessels.set(mmsi, v);
+    }
+
+    if (data.MessageType === 'PositionReport') {
+      const pr = data.Message.PositionReport;
+      v.lat = meta.latitude;
+      v.lon = meta.longitude;
+      v.cog = pr.Cog;
+      v.sog = pr.Sog;
+      v.lastUpdate = Date.now();
+      updateVesselMarker(v);
+    } else if (data.MessageType === 'ShipStaticData') {
+      const sd = data.Message.ShipStaticData;
+      v.type = sd.Type;
+      v.dest = (sd.Destination || '').trim() || null;
+      v.name = (sd.Name || '').trim() || v.name;
+      if (v.marker) updateVesselMarker(v);
+    }
+  }
+
+  function updateStats() {
+    let tanker = 0, cargo = 0, passenger = 0, fishing = 0, other = 0;
+    vessels.forEach(v => {
+      switch (shipTypeInfo(v.type).cat) {
+        case 'tanker': tanker++; break;
+        case 'cargo': cargo++; break;
+        case 'passenger': passenger++; break;
+        case 'fishing': fishing++; break;
+        default: other++;
+      }
+    });
+    document.getElementById('vesselCount').textContent = vessels.size.toLocaleString();
+    document.getElementById('cntTanker').textContent = tanker.toLocaleString();
+    document.getElementById('cntCargo').textContent = cargo.toLocaleString();
+    document.getElementById('cntPassenger').textContent = passenger.toLocaleString();
+    document.getElementById('cntFishing').textContent = fishing.toLocaleString();
+    document.getElementById('cntOther').textContent = other.toLocaleString();
+    document.getElementById('msgCount').textContent = messageCount.toLocaleString();
+  }
+
+  // Remove vessels with no update in 30 minutes
+  setInterval(() => {
+    const cutoff = Date.now() - 30 * 60 * 1000;
+    vessels.forEach((v, mmsi) => {
+      if (v.lastUpdate < cutoff) {
+        if (v.marker) map.removeLayer(v.marker);
+        vessels.delete(mmsi);
+      }
+    });
+    updateStats();
+  }, 60000);
+
+  // ---- WebSocket connection ----
+  const WS_URL = 'wss://stream.aisstream.io/v0/stream';
+  // Whole world.
+  const BBOX = [[-90, -180], [90, 180]];
+
+  let ws = null;
+  let messageCount = 0;
+  let firstMessageReceived = false;
+  let reconnectTimer = null;
+  let noDataTimer = null;
+
+  function setStatus(state, text) {
+    document.getElementById('statusDot').className = 'status-dot ' + state;
+    document.getElementById('statusText').textContent = text;
+  }
+
+  function connect(apiKey) {
+    clearTimeout(reconnectTimer);
+    clearTimeout(noDataTimer);
+    setStatus('connecting', 'Connecting…');
+
+    try {
+      ws = new WebSocket(WS_URL);
+    } catch (e) {
+      setStatus('error', 'Failed to open connection');
+      return;
+    }
+
+    ws.onopen = () => {
+      const sub = {
+        APIKey: apiKey,
+        BoundingBoxes: [BBOX],
+        FilterMessageTypes: ['PositionReport', 'ShipStaticData']
+      };
+      ws.send(JSON.stringify(sub));
+      setStatus('connecting', 'Subscribed — waiting for data…');
+
+      noDataTimer = setTimeout(() => {
+        if (!firstMessageReceived) {
+          setStatus('warn', 'Connected — no AIS data yet');
+        }
+      }, 10000);
+    };
+
+    ws.onmessage = (event) => {
+      const process = (text) => {
+        if (!firstMessageReceived) {
+          firstMessageReceived = true;
+          clearTimeout(noDataTimer);
+          setStatus('live', 'Live');
+        }
+        messageCount++;
+        let data;
+        try { data = JSON.parse(text); } catch (e) { return; }
+        handleMessage(data);
+        // Throttle stat recomputes — global stream is high-volume.
+        if (messageCount % 50 === 0 || messageCount === 1) updateStats();
+      };
+      // aisstream sends binary WebSocket frames, delivered as Blob
+      if (typeof event.data === 'string') process(event.data);
+      else event.data.text().then(process);
+    };
+
+    ws.onerror = () => {
+      setStatus('error', 'Connection error');
+    };
+
+    ws.onclose = () => {
+      if (firstMessageReceived) {
+        setStatus('error', 'Disconnected — reconnecting…');
+      } else {
+        setStatus('error', 'Connection closed — check API key');
+      }
+      reconnectTimer = setTimeout(() => connect(apiKey), 5000);
+    };
+  }
+
+  // ---- API key handling (local storage only) ----
+  const KEY_STORAGE = 'aisstream_apikey';
+
+  function showKeyForm() {
+    document.getElementById('keyForm').style.display = 'block';
+    document.getElementById('liveStats').style.display = 'none';
+  }
+  function showLiveStats() {
+    document.getElementById('keyForm').style.display = 'none';
+    document.getElementById('liveStats').style.display = 'block';
+  }
+
+  function initApiKeyUI() {
+    const stored = localStorage.getItem(KEY_STORAGE);
+    if (stored) {
+      showLiveStats();
+      connect(stored);
+    } else {
+      showKeyForm();
+      setStatus('connecting', 'Not connected');
+      document.getElementById('statusDot').className = 'status-dot';
+    }
+  }
+
+  document.getElementById('connectBtn').addEventListener('click', () => {
+    const key = document.getElementById('apiKeyInput').value.trim();
+    if (!key) return;
+    localStorage.setItem(KEY_STORAGE, key);
+    showLiveStats();
+    updateStats();
+    connect(key);
+  });
+  document.getElementById('apiKeyInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('connectBtn').click();
+  });
+
+  document.getElementById('changeKeyLink').addEventListener('click', () => {
+    if (ws) { ws.onclose = null; ws.close(); }
+    clearTimeout(reconnectTimer);
+    clearTimeout(noDataTimer);
+    localStorage.removeItem(KEY_STORAGE);
+    vessels.forEach(v => { if (v.marker) map.removeLayer(v.marker); });
+    vessels.clear();
+    messageCount = 0;
+    firstMessageReceived = false;
+    document.getElementById('apiKeyInput').value = '';
+    initApiKeyUI();
+  });
+
+  initApiKeyUI();
+</script>
+</body>
+</html>
