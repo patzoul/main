@@ -108,6 +108,10 @@
     .leg-txt { font-size: 11px; color: #aab; }
     .leg-divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 9px 0; }
     .leg-note { font-size: 10px; color: #556; line-height: 1.5; }
+    .legend .leg-row.toggle { cursor: pointer; user-select: none; padding: 2px 5px; margin: 0 -5px 3px; border-radius: 4px; transition: background 0.12s; }
+    .legend .leg-row.toggle:hover { background: rgba(255,255,255,0.07); }
+    .legend .leg-row.off { opacity: 0.35; }
+    .legend .leg-row.off .leg-txt { text-decoration: line-through; }
 
     .source-note {
       position: absolute; bottom: 8px; left: 14px; z-index: 1000;
@@ -184,15 +188,15 @@
 
 <div class="legend">
   <h4>Vessel type</h4>
-  <div class="leg-row"><div class="leg-tri" style="border-bottom-color:#e74c3c"></div><span class="leg-txt">Tanker</span></div>
-  <div class="leg-row"><div class="leg-tri" style="border-bottom-color:#3498db"></div><span class="leg-txt">Cargo</span></div>
-  <div class="leg-row"><div class="leg-tri" style="border-bottom-color:#2ecc71"></div><span class="leg-txt">Passenger</span></div>
-  <div class="leg-row"><div class="leg-tri" style="border-bottom-color:#1abc9c"></div><span class="leg-txt">High-speed craft</span></div>
-  <div class="leg-row"><div class="leg-tri" style="border-bottom-color:#f1c40f"></div><span class="leg-txt">Fishing / towing</span></div>
-  <div class="leg-row"><div class="leg-tri" style="border-bottom-color:#9b59b6"></div><span class="leg-txt">Tug / pilot / special</span></div>
-  <div class="leg-row"><div class="leg-tri" style="border-bottom-color:#95a5a6"></div><span class="leg-txt">Other / unknown</span></div>
+  <div class="leg-row toggle" data-cat="tanker"><div class="leg-tri" style="border-bottom-color:#e74c3c"></div><span class="leg-txt">Tanker</span></div>
+  <div class="leg-row toggle" data-cat="cargo"><div class="leg-tri" style="border-bottom-color:#3498db"></div><span class="leg-txt">Cargo</span></div>
+  <div class="leg-row toggle" data-cat="passenger"><div class="leg-tri" style="border-bottom-color:#2ecc71"></div><span class="leg-txt">Passenger</span></div>
+  <div class="leg-row toggle" data-cat="hsc"><div class="leg-tri" style="border-bottom-color:#1abc9c"></div><span class="leg-txt">High-speed craft</span></div>
+  <div class="leg-row toggle" data-cat="fishing"><div class="leg-tri" style="border-bottom-color:#f1c40f"></div><span class="leg-txt">Fishing / towing</span></div>
+  <div class="leg-row toggle" data-cat="tug"><div class="leg-tri" style="border-bottom-color:#9b59b6"></div><span class="leg-txt">Tug / pilot / special</span></div>
+  <div class="leg-row toggle" data-cat="other"><div class="leg-tri" style="border-bottom-color:#95a5a6"></div><span class="leg-txt">Other / unknown</span></div>
   <hr class="leg-divider">
-  <div class="leg-note">Arrow points in direction of travel (course over ground). Faded arrows = direction unavailable.</div>
+  <div class="leg-note">Click a type to show / hide it. Arrow points in direction of travel (course over ground); faded arrows = direction unavailable.</div>
 </div>
 
 <div class="source-note">
@@ -219,14 +223,14 @@
 
   // ---- Ship type classification ----
   function shipTypeInfo(type) {
-    if (type == null) return { label: 'Unknown', color: '#95a5a6' };
-    if (type >= 80 && type <= 89) return { label: 'Tanker', color: '#e74c3c' };
-    if (type >= 70 && type <= 79) return { label: 'Cargo', color: '#3498db' };
-    if (type >= 60 && type <= 69) return { label: 'Passenger', color: '#2ecc71' };
-    if (type >= 40 && type <= 49) return { label: 'High-speed craft', color: '#1abc9c' };
-    if (type >= 30 && type <= 39) return { label: 'Fishing / Towing', color: '#f1c40f' };
-    if (type >= 50 && type <= 59) return { label: 'Tug / Pilot / Special', color: '#9b59b6' };
-    return { label: 'Other', color: '#95a5a6' };
+    if (type == null) return { label: 'Unknown', color: '#95a5a6', cat: 'other' };
+    if (type >= 80 && type <= 89) return { label: 'Tanker', color: '#e74c3c', cat: 'tanker' };
+    if (type >= 70 && type <= 79) return { label: 'Cargo', color: '#3498db', cat: 'cargo' };
+    if (type >= 60 && type <= 69) return { label: 'Passenger', color: '#2ecc71', cat: 'passenger' };
+    if (type >= 40 && type <= 49) return { label: 'High-speed craft', color: '#1abc9c', cat: 'hsc' };
+    if (type >= 30 && type <= 39) return { label: 'Fishing / Towing', color: '#f1c40f', cat: 'fishing' };
+    if (type >= 50 && type <= 59) return { label: 'Tug / Pilot / Special', color: '#9b59b6', cat: 'tug' };
+    return { label: 'Other', color: '#95a5a6', cat: 'other' };
   }
 
   // Strait runs roughly NW (Indian Ocean / Andaman Sea) <-> SE (South China Sea / Singapore Strait)
@@ -272,9 +276,15 @@
 
   // ---- Vessel state ----
   const vessels = new Map(); // mmsi -> { ... , marker, trail, trailLine }
+  const hiddenCats = new Set(); // ship categories the user has toggled off
 
   function updateVesselMarker(v) {
     const info = shipTypeInfo(v.type);
+    if (hiddenCats.has(info.cat)) {
+      if (v.marker && map.hasLayer(v.marker)) map.removeLayer(v.marker);
+      if (v.trailLine && map.hasLayer(v.trailLine)) map.removeLayer(v.trailLine);
+      return;
+    }
     let rotation = 0, hasDir = false;
     if (v.cog != null && v.cog < 360) { rotation = v.cog; hasDir = true; }
     else if (v.heading != null && v.heading < 360) { rotation = v.heading; hasDir = true; }
@@ -284,6 +294,7 @@
     if (!v.marker) {
       v.marker = L.marker([v.lat, v.lon], { icon }).addTo(map);
     } else {
+      if (!map.hasLayer(v.marker)) v.marker.addTo(map);
       v.marker.setLatLng([v.lat, v.lon]);
       v.marker.setIcon(icon);
     }
@@ -293,11 +304,33 @@
       if (!v.trailLine) {
         v.trailLine = L.polyline(v.trail, { color: info.color, weight: 1.5, opacity: 0.35 }).addTo(map);
       } else {
+        if (!map.hasLayer(v.trailLine)) v.trailLine.addTo(map);
         v.trailLine.setLatLngs(v.trail);
         v.trailLine.setStyle({ color: info.color });
       }
     }
   }
+
+  // Show/hide markers when a vessel-type category is toggled in the legend
+  function applyCategoryFilter() {
+    vessels.forEach(v => {
+      if (hiddenCats.has(shipTypeInfo(v.type).cat)) {
+        if (v.marker && map.hasLayer(v.marker)) map.removeLayer(v.marker);
+        if (v.trailLine && map.hasLayer(v.trailLine)) map.removeLayer(v.trailLine);
+      } else {
+        updateVesselMarker(v);
+      }
+    });
+  }
+
+  document.querySelectorAll('.legend .leg-row.toggle').forEach(row => {
+    row.addEventListener('click', () => {
+      const cat = row.dataset.cat;
+      if (hiddenCats.has(cat)) { hiddenCats.delete(cat); row.classList.remove('off'); }
+      else { hiddenCats.add(cat); row.classList.add('off'); }
+      applyCategoryFilter();
+    });
+  });
 
   function handleMessage(data) {
     const meta = data.MetaData;

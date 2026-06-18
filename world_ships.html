@@ -73,6 +73,12 @@
     .stat-row.total { padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.08); }
     .stat-row.total b { font-size: 16px; }
     .stat-row .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
+    .stat-row.toggle { cursor: pointer; user-select: none; padding: 2px 5px; margin: 0 -5px 4px; border-radius: 4px; transition: background 0.12s; }
+    .stat-row.toggle:hover { background: rgba(255,255,255,0.07); }
+    .stat-row.toggle.off { opacity: 0.4; }
+    .stat-row.toggle.off span { text-decoration: line-through; }
+    .stat-row.toggle.off .swatch { text-decoration: none; }
+    .toggle-hint { font-size: 10px; color: #556; margin: 2px 0 2px; }
     #liveStats .footer-row {
       margin-top: 10px; padding-top: 8px;
       border-top: 1px solid rgba(255,255,255,0.08);
@@ -136,11 +142,12 @@
 
   <div id="liveStats">
     <div class="stat-row total"><span>Tracked vessels</span><b id="vesselCount">0</b></div>
-    <div class="stat-row"><span><span class="swatch" style="background:#e74c3c"></span>Tankers</span><b id="cntTanker">0</b></div>
-    <div class="stat-row"><span><span class="swatch" style="background:#3498db"></span>Cargo</span><b id="cntCargo">0</b></div>
-    <div class="stat-row"><span><span class="swatch" style="background:#2ecc71"></span>Passenger</span><b id="cntPassenger">0</b></div>
-    <div class="stat-row"><span><span class="swatch" style="background:#f1c40f"></span>Fishing</span><b id="cntFishing">0</b></div>
-    <div class="stat-row"><span><span class="swatch" style="background:#95a5a6"></span>Other / unknown</span><b id="cntOther">0</b></div>
+    <div class="toggle-hint">Click a type to show / hide it on the map.</div>
+    <div class="stat-row toggle" data-cat="tanker"><span><span class="swatch" style="background:#e74c3c"></span>Tankers</span><b id="cntTanker">0</b></div>
+    <div class="stat-row toggle" data-cat="cargo"><span><span class="swatch" style="background:#3498db"></span>Cargo</span><b id="cntCargo">0</b></div>
+    <div class="stat-row toggle" data-cat="passenger"><span><span class="swatch" style="background:#2ecc71"></span>Passenger</span><b id="cntPassenger">0</b></div>
+    <div class="stat-row toggle" data-cat="fishing"><span><span class="swatch" style="background:#f1c40f"></span>Fishing</span><b id="cntFishing">0</b></div>
+    <div class="stat-row toggle" data-cat="other"><span><span class="swatch" style="background:#95a5a6"></span>Other / unknown</span><b id="cntOther">0</b></div>
     <div class="footer-row">
       Messages received: <span id="msgCount">0</span><br>
       <span id="changeKeyLink">Change API key</span>
@@ -207,9 +214,14 @@
   // At global scale there can be many thousands of vessels, so each is a
   // lightweight canvas circleMarker (no rotating icon, no trail polyline).
   const vessels = new Map(); // mmsi -> { ..., marker }
+  const hiddenCats = new Set(); // ship categories the user has toggled off
 
   function updateVesselMarker(v) {
     const info = shipTypeInfo(v.type);
+    if (hiddenCats.has(info.cat)) {
+      if (v.marker && map.hasLayer(v.marker)) map.removeLayer(v.marker);
+      return;
+    }
     if (!v.marker) {
       v.marker = L.circleMarker([v.lat, v.lon], {
         radius: 3, color: info.color, weight: 0.5,
@@ -217,11 +229,32 @@
       }).addTo(map);
       v.marker.bindTooltip(tooltipHtml(v), { sticky: true });
     } else {
+      if (!map.hasLayer(v.marker)) v.marker.addTo(map);
       v.marker.setLatLng([v.lat, v.lon]);
       v.marker.setStyle({ color: info.color, fillColor: info.color });
       v.marker.setTooltipContent(tooltipHtml(v));
     }
   }
+
+  // Show/hide markers when a vessel-type category is toggled in the panel
+  function applyCategoryFilter() {
+    vessels.forEach(v => {
+      if (hiddenCats.has(shipTypeInfo(v.type).cat)) {
+        if (v.marker && map.hasLayer(v.marker)) map.removeLayer(v.marker);
+      } else {
+        updateVesselMarker(v);
+      }
+    });
+  }
+
+  document.querySelectorAll('.stat-row.toggle').forEach(row => {
+    row.addEventListener('click', () => {
+      const cat = row.dataset.cat;
+      if (hiddenCats.has(cat)) { hiddenCats.delete(cat); row.classList.remove('off'); }
+      else { hiddenCats.add(cat); row.classList.add('off'); }
+      applyCategoryFilter();
+    });
+  });
 
   function handleMessage(data) {
     const meta = data.MetaData;
