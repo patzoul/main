@@ -194,6 +194,11 @@
     </div>`;
   }
 
+  // The map wraps horizontally (the world repeats), so draw each quake on
+  // the neighbouring world copies too. 0 = canonical, ±360 = the copies left
+  // and right of it.
+  const WORLD_OFFSETS = [-360, 0, 360];
+
   let allFeatures = [];
   let layerGroup = L.layerGroup().addTo(map);
   let currentMag = 2.5;
@@ -211,37 +216,59 @@
       const mag = f.properties.mag || 0;
       const d = depth || 0;
 
-      const c = L.circleMarker([lat, lon], {
-        radius: radius(mag),
-        fillColor: depthColor(d),
-        color: 'rgba(0,0,0,0.5)',
-        weight: 0.5,
-        fillOpacity: 0.78,
-        opacity: 1
-      });
-
       const html = ttHtml(f.properties, d);
-      c.bindTooltip(html, { sticky: true, opacity: 1, className: '' });
-      c.bindPopup(html + `<div style="padding:0 12px 9px;font-size:10px;color:#aaa">
+      const popup = html + `<div style="padding:0 12px 9px;font-size:10px;color:#aaa">
         <a href="${f.properties.url}" target="_blank" style="color:#3498db">View on USGS ↗</a>
-      </div>`);
-      layerGroup.addLayer(c);
+      </div>`;
+
+      WORLD_OFFSETS.forEach(off => {
+        const c = L.circleMarker([lat, lon + off], {
+          radius: radius(mag),
+          fillColor: depthColor(d),
+          color: 'rgba(0,0,0,0.5)',
+          weight: 0.5,
+          fillOpacity: 0.78,
+          opacity: 1
+        });
+        c.bindTooltip(html, { sticky: true, opacity: 1, className: '' });
+        c.bindPopup(popup);
+        layerGroup.addLayer(c);
+      });
     });
 
     document.getElementById('vis').textContent = filtered.length.toLocaleString();
   }
 
-  const DATA_URL = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_month.geojson';
+  // USGS summary feeds (M2.5+). The month feed refreshes roughly every
+  // 15 min; the day feed about every minute, so merging the day feed in
+  // fills the gap of the very latest events. Dedupe by USGS event id,
+  // letting the fresher day feed win.
+  const MONTH_URL = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_month.geojson';
+  const DAY_URL   = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson';
 
-  fetch(DATA_URL)
-    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-    .then(data => {
+  function fetchJson(url) {
+    return fetch(url).then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); });
+  }
+
+  Promise.allSettled([fetchJson(MONTH_URL), fetchJson(DAY_URL)])
+    .then(([monthRes, dayRes]) => {
+      const byId = new Map();
+      let generated = 0;
+      if (monthRes.status === 'fulfilled') {
+        monthRes.value.features.forEach(f => byId.set(f.id, f));
+        generated = Math.max(generated, monthRes.value.metadata?.generated || 0);
+      }
+      if (dayRes.status === 'fulfilled') {
+        dayRes.value.features.forEach(f => byId.set(f.id, f)); // fresher feed wins
+        generated = Math.max(generated, dayRes.value.metadata?.generated || 0);
+      }
+      if (byId.size === 0) throw (monthRes.reason || dayRes.reason || new Error('No data'));
+
       document.getElementById('loading').style.display = 'none';
-      allFeatures = data.features;
+      allFeatures = Array.from(byId.values());
       document.getElementById('tot').textContent = allFeatures.length.toLocaleString();
-      const meta = data.metadata;
-      if (meta && meta.generated) {
-        document.getElementById('ts').textContent = 'Updated: ' + fmtTime(meta.generated);
+      if (generated) {
+        document.getElementById('ts').textContent = 'Updated: ' + fmtTime(generated);
       }
       renderMap();
     })
