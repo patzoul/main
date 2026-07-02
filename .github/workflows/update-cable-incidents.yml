@@ -19,6 +19,7 @@ on:
 permissions:
   contents: write          # push the proposal branch
   pull-requests: write     # open the PR
+  id-token: write          # required by claude-code-action for its OIDC token exchange
 
 concurrency:
   group: update-cable-incidents
@@ -38,7 +39,7 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: >-
-            --model claude-sonnet-4-6
+            --model claude-sonnet-5
             --max-turns 40
             --allowedTools "WebSearch,WebFetch,Read,Edit,Write,Bash(git:*),Bash(gh:*),Bash(python3:*)"
           prompt: |
