@@ -32,7 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Research new incidents and open a PR
         uses: anthropics/claude-code-action@v1   # pin to a SHA for stricter supply-chain safety
