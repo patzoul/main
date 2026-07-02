@@ -80,6 +80,8 @@ jobs:
                "No new incidents.".
             7. If you added incidents: create a branch named `cable-incidents/update-<YYYY-MM-DD>`,
                commit only `cable_incidents.json` with a clear message, push it, and open a PR
-               against `main` with `gh pr create`. In the PR body, list each added incident with
-               its date, cables, and sources, and add the note: "Auto-researched draft — please
-               verify sources and coordinates before merging."
+               against `main` with `gh pr create`. Assign it to the maintainer and request their
+               review so they are notified, by passing `--assignee patzoul --reviewer patzoul` to
+               `gh pr create`. In the PR body, list each added incident with its date, cables, and
+               sources, and add the note: "Auto-researched draft — please verify sources and
+               coordinates before merging."
