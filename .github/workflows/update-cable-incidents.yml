@@ -7,7 +7,9 @@ name: Update cable incidents
 # commits to main on its own. A maintainer verifies sources and merges.
 #
 # One-time setup required (see README):
-#   1. Add repo secret ANTHROPIC_API_KEY (Settings > Secrets and variables > Actions).
+#   1. On a machine with Claude Code, run `claude setup-token` (needs a Claude
+#      Pro/Max subscription) and add the result as repo secret
+#      CLAUDE_CODE_OAUTH_TOKEN (Settings > Secrets and variables > Actions).
 #   2. Enable Settings > Actions > General > "Allow GitHub Actions to create and
 #      approve pull requests".
 
@@ -37,7 +39,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: >-
             --model claude-sonnet-5
             --max-turns 40

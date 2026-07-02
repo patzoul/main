@@ -35,8 +35,9 @@ The incident list is hand-curated from public news reporting (there is no
 structured feed for cable damage). A monthly GitHub Actions job
 (`.github/workflows/update-cable-incidents.yml`) uses the Claude Code Action to
 research candidate new incidents and **open a pull request** for human review —
-it never commits to `main`. One-time setup: add an `ANTHROPIC_API_KEY` repo
-secret, and enable Settings → Actions → General → "Allow GitHub Actions to
+it never commits to `main`. One-time setup: run `claude setup-token` (needs a
+Claude Pro/Max subscription) and add the result as a `CLAUDE_CODE_OAUTH_TOKEN`
+repo secret, and enable Settings → Actions → General → "Allow GitHub Actions to
 create and approve pull requests".
 
 The electricity map (Plotly choropleth) colours each country by its residential
