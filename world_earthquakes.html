@@ -124,9 +124,9 @@
   </div>
   <input type="range" id="magSlider" min="2.5" max="7.0" step="0.1" value="2.5">
   <div class="ctrl-label" style="margin-top:10px">
-    Last &nbsp;<span class="val" id="daysVal">30 days</span>
+    Last &nbsp;<span class="val" id="daysVal">1 day</span>
   </div>
-  <input type="range" id="daysSlider" min="1" max="30" step="1" value="30">
+  <input type="range" id="daysSlider" min="1" max="30" step="1" value="1">
   <div id="stats">
     Showing <b id="vis">—</b> of <b id="tot">—</b> events
     <div class="timestamp" id="ts"></div>
@@ -202,7 +202,7 @@
   let allFeatures = [];
   let layerGroup = L.layerGroup().addTo(map);
   let currentMag = 2.5;
-  let currentDays = 30;
+  let currentDays = 1;
 
   function renderMap() {
     layerGroup.clearLayers();
