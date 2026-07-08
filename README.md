@@ -7,6 +7,7 @@ full list.
 
 - **[world_earthquakes.html](world_earthquakes.html)** — global earthquakes, M2.5+, past 30 days
 - **[japan_earthquakes.html](japan_earthquakes.html)** — Japan region (23–47°N, 120–150°E), M2.5+, past 30 days
+- **[world_fires.html](world_fires.html)** — global wildfire events from [NASA EONET](https://eonet.gsfc.nasa.gov/), sized by area burned and colored by recency
 - **[malacca_ships.html](malacca_ships.html)** — live ship traffic in the Strait of Malacca via [aisstream.io](https://aisstream.io) AIS data
 - **[world_ships.html](world_ships.html)** — live worldwide ship traffic (whole-globe AIS) via [aisstream.io](https://aisstream.io), rendered as lightweight canvas dots colored by vessel type
 - **[submarine_cables.html](submarine_cables.html)** — global submarine cable routes, landing points, and documented damage incidents (2024–2025), data from [TeleGeography](https://www.submarinecablemap.com)
