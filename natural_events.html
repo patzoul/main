@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>World Natural Hazards — NASA EONET</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0d0d1a; }
+    #map { width: 100vw; height: 100vh; background: #0a0a14; }
+
+    #panel {
+      position: absolute; top: 14px; left: 14px; z-index: 1000;
+      background: rgba(10, 10, 25, 0.90);
+      border: 1px solid rgba(120, 190, 255, 0.28);
+      border-radius: 10px; padding: 14px 18px; width: 245px;
+      max-height: calc(100vh - 28px); overflow-y: auto;
+      backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    #panel h2 { font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #7ec8f7; margin-bottom: 2px; text-transform: uppercase; }
+    #panel .subtitle { font-size: 11px; color: #778; margin-bottom: 12px; }
+    .ctrl-label { display: flex; justify-content: space-between; font-size: 11px; color: #aab; margin-bottom: 5px; }
+    .ctrl-label .val { color: #7ec8f7; font-weight: 700; font-size: 13px; }
+    input[type="range"] { width: 100%; accent-color: #7ec8f7; cursor: pointer; height: 4px; }
+
+    .cats-head {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #7ec8f7;
+      margin: 12px 0 8px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .cat-row {
+      display: flex; align-items: center; gap: 8px; padding: 3px 5px; margin: 0 -5px 2px;
+      border-radius: 4px; cursor: pointer; user-select: none; transition: background 0.12s;
+    }
+    .cat-row:hover { background: rgba(255,255,255,0.07); }
+    .cat-row.off { opacity: 0.35; }
+    .cat-row.off .cat-label { text-decoration: line-through; }
+    .cat-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.25); }
+    .cat-label { font-size: 12px; color: #cdd; flex: 1; }
+    .cat-count { font-size: 11px; color: #778; }
+
+    #stats { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 11px; color: #889; }
+    #stats b { color: #7ec8f7; }
+    #stats .sub { font-size: 10px; color: #556; margin-top: 4px; line-height: 1.5; }
+
+    #loading {
+      position: absolute; inset: 0; background: rgba(10,10,25,0.88);
+      display: flex; align-items: center; justify-content: center; z-index: 2000; flex-direction: column; gap: 14px;
+    }
+    #loading.hide { display: none; }
+    .spinner { width: 36px; height: 36px; border: 3px solid rgba(126,200,247,0.2); border-top-color: #7ec8f7; border-radius: 50%; animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: #7ec8f7; font-size: 13px; }
+    #error-msg { color: #e74c3c; font-size: 12px; max-width: 280px; text-align: center; }
+
+    .source-note { position: absolute; bottom: 8px; left: 14px; z-index: 1000; font-size: 10px; color: #445; }
+    .source-note a { color: #5a7fa8; }
+
+    .leaflet-tooltip {
+      background: rgba(255,255,255,0.97) !important; color: #222 !important;
+      border: none !important; border-radius: 8px !important;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.3) !important; padding: 0 !important;
+    }
+    .leaflet-tooltip::before { display: none !important; }
+    .leaflet-popup-content-wrapper { background: rgba(255,255,255,0.97) !important; color: #222 !important; border-radius: 8px !important; }
+    .tt { padding: 8px 11px; min-width: 180px; max-width: 260px; }
+    .tt-place { font-size: 12px; font-weight: 700; color: #222; margin-bottom: 6px; line-height: 1.3; }
+    .tt-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
+    .tt-key { font-size: 11px; color: #888; }
+    .tt-val { font-size: 11px; font-weight: 600; color: #333; }
+  </style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div><p>Fetching NASA natural-events data…</p><div id="error-msg"></div></div>
+
+<div id="panel">
+  <h2>Natural Hazards</h2>
+  <div class="subtitle">NASA EONET · active natural events</div>
+  <div class="ctrl-label">Last &nbsp;<span class="val" id="daysVal">365 days</span></div>
+  <input type="range" id="daysSlider" min="30" max="365" step="5" value="365">
+  <div class="cats-head">Event types <span style="color:#556;text-transform:none;letter-spacing:0">· click to toggle</span></div>
+  <div id="catToggles"></div>
+  <div id="stats">
+    Showing <b id="vis">—</b> of <b id="tot">—</b> events
+    <div class="sub" id="ts"></div>
+  </div>
+</div>
+
+<div class="source-note">
+  Data: <a href="https://eonet.gsfc.nasa.gov/" target="_blank">NASA EONET</a> · active events, updated continuously
+</div>
+
+<div id="map"></div>
+
+<script>
+  const map = L.map('map', { preferCanvas: true, zoomControl: true, worldCopyJump: true }).setView([20, 10], 2);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CartoDB</a> | Data: <a href="https://eonet.gsfc.nasa.gov/" style="color:#7ec8f7">NASA EONET</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(map);
+
+  // Category → label, color, and whether it starts visible. Wildfires start OFF
+  // (they have their own dedicated FIRMS map and would otherwise dominate).
+  const CATS = {
+    volcanoes:    { label: 'Volcanoes',      color: '#e74c3c', on: true },
+    severeStorms: { label: 'Severe storms',  color: '#3498db', on: true },
+    seaLakeIce:   { label: 'Sea & lake ice', color: '#5dceeb', on: true },
+    floods:       { label: 'Floods',         color: '#2980b9', on: true },
+    water:        { label: 'Water',          color: '#16a085', on: true },
+    dustHaze:     { label: 'Dust & haze',    color: '#d2b48c', on: true },
+    landslides:   { label: 'Landslides',     color: '#a0522d', on: true },
+    drought:      { label: 'Drought',        color: '#e1b12c', on: true },
+    tempExtremes: { label: 'Temp extremes',  color: '#e67e22', on: true },
+    snow:         { label: 'Snow',           color: '#d6eaf8', on: true },
+    earthquakes:  { label: 'Earthquakes',    color: '#9b59b6', on: true },
+    manmade:      { label: 'Manmade',        color: '#95a5a6', on: true },
+    wildfires:    { label: 'Wildfires',      color: '#f5945b', on: false }
+  };
+  function catInfo(id) { return CATS[id] || { label: id, color: '#8a949e', on: true }; }
+
+  const hiddenCats = new Set();
+  let allFeatures = [];
+  let currentDays = 365;
+  const layerGroup = L.layerGroup().addTo(map);
+
+  const ageDays = d => (Date.now() - new Date(d).getTime()) / 86400000;
+  const fmtTime = ts => new Date(ts).toLocaleString('en-US', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
+
+  function geomOf(f) {
+    const g = f.geometry;
+    if (!g) return null;
+    if (g.type === 'Point') return { pt: [g.coordinates[1], g.coordinates[0]], track: null };
+    if (g.type === 'LineString' && g.coordinates.length) {
+      const coords = g.coordinates.map(c => [c[1], c[0]]);
+      return { pt: coords[coords.length - 1], track: coords };
+    }
+    return null;
+  }
+
+  function popupHtml(f) {
+    const p = f.properties;
+    const cat = (p.categories && p.categories[0] && p.categories[0].id) || 'other';
+    const info = catInfo(cat);
+    const days = p.date ? Math.max(0, Math.round(ageDays(p.date))) : null;
+    const mag = (p.magnitudeValue != null) ? `${p.magnitudeValue} ${p.magnitudeUnit || ''}`.trim() : null;
+    return `<div class="tt">
+      <div class="tt-place">${p.title || 'Event'}</div>
+      <div class="tt-grid">
+        <span class="tt-key">Type</span><span class="tt-val" style="color:${info.color}">${info.label}</span>
+        ${mag ? `<span class="tt-key">Magnitude</span><span class="tt-val">${mag}</span>` : ''}
+        <span class="tt-key">Date</span><span class="tt-val">${p.date ? fmtTime(p.date) : '—'}${days != null ? ` · ${days}d ago` : ''}</span>
+        ${p.description ? `<span class="tt-key">Info</span><span class="tt-val">${p.description}</span>` : ''}
+      </div>
+    </div>`;
+  }
+  function popupExtra(f) {
+    const p = f.properties, links = [];
+    if (p.sources && p.sources[0] && p.sources[0].url) links.push(`<a href="${p.sources[0].url}" target="_blank" style="color:#3498db">Source ↗</a>`);
+    if (p.link) links.push(`<a href="${p.link}" target="_blank" style="color:#3498db">EONET ↗</a>`);
+    return links.length ? `<div style="padding:0 12px 9px;font-size:10px;color:#aaa">${links.join(' · ')}</div>` : '';
+  }
+
+  function render() {
+    layerGroup.clearLayers();
+    let shown = 0;
+    allFeatures.forEach(f => {
+      const cat = (f.properties.categories && f.properties.categories[0] && f.properties.categories[0].id) || 'other';
+      if (hiddenCats.has(cat)) return;
+      if (f.properties.date != null && ageDays(f.properties.date) > currentDays) return;
+      const geo = geomOf(f);
+      if (!geo) return;
+      const color = catInfo(cat).color;
+      if (geo.track) layerGroup.addLayer(L.polyline(geo.track, { color, weight: 1.5, opacity: 0.4 }));
+      const m = L.circleMarker(geo.pt, { radius: 5, fillColor: color, color: 'rgba(0,0,0,0.5)', weight: 0.6, fillOpacity: 0.85, opacity: 1 });
+      const html = popupHtml(f);
+      m.bindTooltip(html, { sticky: true, opacity: 1 });
+      m.bindPopup(html + popupExtra(f));
+      layerGroup.addLayer(m);
+      shown++;
+    });
+    document.getElementById('vis').textContent = shown.toLocaleString();
+    document.getElementById('tot').textContent = allFeatures.length.toLocaleString();
+  }
+
+  function buildToggles() {
+    const counts = {};
+    allFeatures.forEach(f => {
+      const cat = (f.properties.categories && f.properties.categories[0] && f.properties.categories[0].id) || 'other';
+      counts[cat] = (counts[cat] || 0) + 1;
+    });
+    const present = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    const box = document.getElementById('catToggles');
+    box.innerHTML = '';
+    present.forEach(cat => {
+      const info = catInfo(cat);
+      if (info.on === false) hiddenCats.add(cat);
+      const row = document.createElement('div');
+      row.className = 'cat-row' + (hiddenCats.has(cat) ? ' off' : '');
+      row.innerHTML = `<span class="cat-dot" style="background:${info.color}"></span><span class="cat-label">${info.label}</span><span class="cat-count">${counts[cat].toLocaleString()}</span>`;
+      row.addEventListener('click', () => {
+        if (hiddenCats.has(cat)) { hiddenCats.delete(cat); row.classList.remove('off'); }
+        else { hiddenCats.add(cat); row.classList.add('off'); }
+        render();
+      });
+      box.appendChild(row);
+    });
+  }
+
+  fetch('https://eonet.gsfc.nasa.gov/api/v3/events/geojson?status=open')
+    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+    .then(data => {
+      document.getElementById('loading').classList.add('hide');
+      allFeatures = (data.features || []).filter(f => f.geometry && (f.geometry.type === 'Point' || f.geometry.type === 'LineString'));
+      let newest = 0;
+      allFeatures.forEach(f => { if (f.properties.date) { const t = new Date(f.properties.date).getTime(); if (t > newest) newest = t; } });
+      if (newest) document.getElementById('ts').textContent = 'Most recent: ' + fmtTime(newest);
+      buildToggles();
+      render();
+    })
+    .catch(err => {
+      document.getElementById('loading').querySelector('p').textContent = 'Failed to load data';
+      document.getElementById('error-msg').textContent = err.message + ' — check internet connection';
+    });
+
+  document.getElementById('daysSlider').addEventListener('input', e => {
+    currentDays = parseInt(e.target.value);
+    document.getElementById('daysVal').textContent = currentDays + (currentDays === 1 ? ' day' : ' days');
+    render();
+  });
+</script>
+</body>
+</html>
