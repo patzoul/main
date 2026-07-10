@@ -7,7 +7,7 @@ full list.
 
 - **[world_earthquakes.html](world_earthquakes.html)** — global earthquakes, M2.5+, past 30 days
 - **[japan_earthquakes.html](japan_earthquakes.html)** — Japan region (23–47°N, 120–150°E), M2.5+, past 30 days
-- **[world_fires.html](world_fires.html)** — global wildfire events from [NASA EONET](https://eonet.gsfc.nasa.gov/), sized by area burned and colored by recency
+- **[world_fires.html](world_fires.html)** — global active-fire / thermal-anomaly detections from [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS / MODIS), colored by fire radiative power, with satellite/day-range/intensity filters. Requires a free FIRMS proxy (see below)
 - **[malacca_ships.html](malacca_ships.html)** — live ship traffic in the Strait of Malacca via [aisstream.io](https://aisstream.io) AIS data
 - **[world_ships.html](world_ships.html)** — live worldwide ship traffic (whole-globe AIS) via [aisstream.io](https://aisstream.io), rendered as lightweight canvas dots colored by vessel type
 - **[submarine_cables.html](submarine_cables.html)** — global submarine cable routes, landing points, and documented damage incidents (2024–2025), data from [TeleGeography](https://www.submarinecablemap.com)
@@ -24,6 +24,14 @@ The Malacca and world ship maps connect to aisstream.io over a WebSocket and
 plot live vessel positions, headings, and short tracks. Each requires a free
 aisstream.io API key — entered once in the browser and stored only in
 `localStorage`, never written to any file in this repo.
+
+The wildfire map streams live active-fire detections from NASA FIRMS
+(VIIRS / MODIS). FIRMS requires a key and blocks direct browser access (no CORS),
+so requests go through a tiny **free Cloudflare Worker** proxy that holds the key
+server-side and adds CORS. The Worker code and one-time setup steps are in
+[`firms-proxy.js`](firms-proxy.js); once deployed, paste its URL into the map
+(stored only in `localStorage`). Everything is free — the FIRMS key and the
+Workers free tier both cost nothing.
 
 The submarine cable map plots all cable routes and landing points from
 `cable-geo.json` / `landing-point-geo.json` (© TeleGeography, CC BY-NC-SA 3.0),

@@ -3,19 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>World Wildfires — NASA EONET</title>
+  <title>World Wildfires — NASA FIRMS</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0d0d1a; }
-    #map { width: 100vw; height: 100vh; }
+    #map { width: 100vw; height: 100vh; background: #0a0a14; }
 
     #panel {
       position: absolute; top: 14px; left: 14px; z-index: 1000;
       background: rgba(10, 10, 25, 0.90);
       border: 1px solid rgba(255, 150, 90, 0.28);
-      border-radius: 10px; padding: 14px 18px; width: 240px;
+      border-radius: 10px; padding: 14px 18px; width: 250px;
       backdrop-filter: blur(10px);
       box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
@@ -23,78 +23,86 @@
       font-size: 13px; font-weight: 700; letter-spacing: 1px;
       color: #f5945b; margin-bottom: 2px; text-transform: uppercase;
     }
-    #panel .subtitle { font-size: 11px; color: #778; margin-bottom: 14px; }
-    .ctrl-label {
-      display: flex; justify-content: space-between;
-      font-size: 11px; color: #aab; margin-bottom: 5px;
+    #panel .subtitle { font-size: 11px; color: #778; margin-bottom: 12px; }
+
+    .status-row { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #aab; margin-bottom: 10px; }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: #f1c40f; }
+    .status-dot.connecting { background: #f1c40f; animation: pulse 1.2s infinite; }
+    .status-dot.live { background: #2ecc71; }
+    .status-dot.warn { background: #f1c40f; }
+    .status-dot.error { background: #e74c3c; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* Setup form */
+    #setupForm { display: none; }
+    #setupForm p { font-size: 11px; color: #99a; line-height: 1.5; margin-bottom: 10px; }
+    #setupForm a { color: #f5945b; }
+    #proxyInput {
+      width: 100%; padding: 7px 9px; font-size: 12px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,150,90,0.25);
+      border-radius: 6px; color: #dde; margin-bottom: 8px; outline: none;
     }
+    #proxyInput:focus { border-color: #f5945b; }
+    #connectBtn {
+      width: 100%; padding: 8px; font-size: 12px; font-weight: 700;
+      letter-spacing: 0.5px; text-transform: uppercase;
+      background: #f5945b; color: #0d0d1a; border: none; border-radius: 6px; cursor: pointer;
+    }
+    #connectBtn:hover { background: #f7a878; }
+    #setupForm .note { font-size: 10px; color: #556; margin-top: 8px; line-height: 1.5; }
+
+    /* Controls */
+    #controls { display: none; }
+    .ctrl-label { display: flex; justify-content: space-between; font-size: 11px; color: #aab; margin: 10px 0 5px; }
+    .ctrl-label:first-child { margin-top: 0; }
     .ctrl-label .val { color: #f5945b; font-weight: 700; font-size: 13px; }
-    input[type="range"] {
-      width: 100%; accent-color: #f5945b; cursor: pointer;
-      height: 4px; border-radius: 2px;
+    select {
+      width: 100%; padding: 6px 8px; font-size: 12px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,150,90,0.25);
+      border-radius: 6px; color: #dde; outline: none; cursor: pointer;
     }
+    input[type="range"] { width: 100%; accent-color: #f5945b; cursor: pointer; height: 4px; }
     #stats {
       margin-top: 12px; padding-top: 10px;
       border-top: 1px solid rgba(255,255,255,0.08);
       font-size: 11px; color: #889;
     }
     #stats b { color: #f5945b; }
-    #stats .timestamp { font-size: 10px; color: #556; margin-top: 4px; }
-
-    #loading {
-      position: absolute; top: 0; left: 0;
-      width: 100%; height: 100%;
-      background: rgba(10,10,25,0.88);
-      display: flex; align-items: center; justify-content: center;
-      z-index: 2000; flex-direction: column; gap: 14px;
-    }
-    .spinner {
-      width: 36px; height: 36px;
-      border: 3px solid rgba(245,148,91,0.2);
-      border-top-color: #f5945b;
-      border-radius: 50%;
-      animation: spin 0.9s linear infinite;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    #loading p { color: #f5945b; font-size: 13px; letter-spacing: 0.5px; }
-    #error-msg { color: #e74c3c; font-size: 12px; max-width: 280px; text-align: center; }
+    #stats .sub { font-size: 10px; color: #667; margin-top: 3px; }
+    #changeProxy { color: #5a7fa8; cursor: pointer; text-decoration: underline; font-size: 10px; }
 
     .legend {
       position: absolute; bottom: 28px; right: 14px; z-index: 1000;
       background: rgba(10, 10, 25, 0.90);
       border: 1px solid rgba(255, 150, 90, 0.28);
-      border-radius: 10px; padding: 12px 16px; min-width: 160px;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      border-radius: 10px; padding: 12px 16px; min-width: 170px;
+      backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
-    .legend h4 {
-      font-size: 10px; text-transform: uppercase; letter-spacing: 1px;
-      color: #f5945b; margin-bottom: 8px;
-    }
+    .legend h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #f5945b; margin-bottom: 8px; }
     .leg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-    .leg-dot {
-      width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0;
-      border: 1px solid rgba(255,255,255,0.2);
-    }
+    .leg-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.2); }
     .leg-txt { font-size: 11px; color: #aab; }
-    .leg-divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 9px 0; }
-    .leg-size-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-    .leg-circle {
-      border-radius: 50%; background: rgba(245,148,91,0.4);
-      border: 1px solid rgba(245,148,91,0.7); flex-shrink: 0;
-    }
+    .leg-note { font-size: 10px; color: #556; line-height: 1.5; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.08); }
 
-    /* Leaflet tooltip override */
-    .leaflet-tooltip {
-      background: rgba(255,255,255,0.97) !important;
-      border: none !important;
-      border-radius: 8px !important;
-      box-shadow: 0 3px 14px rgba(0,0,0,0.3) !important;
-      padding: 0 !important;
+    #loading {
+      position: absolute; inset: 0; background: rgba(10,10,25,0.55);
+      display: none; align-items: center; justify-content: center;
+      z-index: 1500; flex-direction: column; gap: 12px; pointer-events: none;
     }
-    .leaflet-tooltip-bottom::before { border-bottom-color: rgba(255,255,255,0.97) !important; }
-    .tt { padding: 9px 12px; min-width: 190px; max-width: 260px; }
-    .tt-place { font-size: 12px; font-weight: 700; color: #222; margin-bottom: 6px; line-height: 1.3; }
+    #loading.show { display: flex; }
+    .spinner {
+      width: 34px; height: 34px; border: 3px solid rgba(245,148,91,0.2);
+      border-top-color: #f5945b; border-radius: 50%; animation: spin 0.9s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: #f5945b; font-size: 12px; }
+
+    .leaflet-popup-content-wrapper {
+      background: rgba(255,255,255,0.97) !important; color: #222 !important;
+      border-radius: 8px !important;
+    }
+    .tt { padding: 3px 4px; min-width: 180px; }
+    .tt-place { font-size: 12px; font-weight: 700; color: #222; margin-bottom: 6px; }
     .tt-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
     .tt-key { font-size: 11px; color: #888; }
     .tt-val { font-size: 11px; font-weight: 600; color: #333; }
@@ -103,172 +111,237 @@
 </head>
 <body>
 
-<div id="loading">
-  <div class="spinner"></div>
-  <p>Fetching NASA wildfire data…</p>
-  <div id="error-msg"></div>
-</div>
-
 <div id="panel">
   <h2>World Wildfires</h2>
-  <div class="subtitle">NASA EONET · open wildfire events</div>
-  <div class="ctrl-label">
-    Min size &nbsp;<span class="val" id="acreVal">0 ac</span>
+  <div class="subtitle">NASA FIRMS · active fire / thermal anomalies</div>
+
+  <div class="status-row">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Not configured</span>
   </div>
-  <input type="range" id="acreSlider" min="0" max="100000" step="1000" value="0">
-  <div class="ctrl-label" style="margin-top:10px">
-    Last &nbsp;<span class="val" id="daysVal">90 days</span>
+
+  <div id="setupForm">
+    <p>
+      This map streams live active-fire detections from
+      <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank">NASA FIRMS</a>
+      (VIIRS / MODIS). FIRMS blocks direct browser access, so it goes through a
+      small free proxy you deploy once. Paste your proxy (Cloudflare Worker) URL:
+    </p>
+    <input type="text" id="proxyInput" placeholder="https://firms-proxy.you.workers.dev" autocomplete="off" spellcheck="false">
+    <button id="connectBtn">Connect</button>
+    <div class="note">
+      The proxy holds your free FIRMS key server-side; nothing sensitive is
+      stored in this page. The URL is kept only in this browser's local storage.
+      See <b>firms-proxy.js</b> in the repo for the Worker code &amp; setup steps.
+    </div>
   </div>
-  <input type="range" id="daysSlider" min="1" max="365" step="1" value="90">
-  <div id="stats">
-    Showing <b id="vis">—</b> of <b id="tot">—</b> events
-    <div class="timestamp" id="ts"></div>
+
+  <div id="controls">
+    <div class="ctrl-label" style="margin-top:0">Satellite source</div>
+    <select id="sourceSel">
+      <option value="VIIRS_NOAA20_NRT">VIIRS (NOAA-20) · 375 m</option>
+      <option value="VIIRS_SNPP_NRT">VIIRS (Suomi-NPP) · 375 m</option>
+      <option value="VIIRS_NOAA21_NRT">VIIRS (NOAA-21) · 375 m</option>
+      <option value="MODIS_NRT">MODIS (Terra/Aqua) · 1 km</option>
+    </select>
+    <div class="ctrl-label">Day range &nbsp;<span class="val" id="dayVal">1 day</span></div>
+    <input type="range" id="daySlider" min="1" max="3" step="1" value="1">
+    <div class="ctrl-label">Min intensity &nbsp;<span class="val" id="frpVal">≥ 10 MW</span></div>
+    <input type="range" id="frpSlider" min="0" max="200" step="5" value="10">
+    <div id="stats">
+      Showing <b id="vis">—</b> of <b id="tot">—</b> detections
+      <div class="sub" id="capnote"></div>
+      <div class="sub" id="ts"></div>
+      <div class="sub" style="margin-top:6px"><span id="changeProxy">Change proxy URL</span></div>
+    </div>
   </div>
 </div>
 
 <div class="legend">
-  <h4>Last detected</h4>
-  <div class="leg-row"><div class="leg-dot" style="background:#e74c3c"></div><span class="leg-txt">≤ 7 days</span></div>
-  <div class="leg-row"><div class="leg-dot" style="background:#f39c12"></div><span class="leg-txt">≤ 30 days</span></div>
-  <div class="leg-row"><div class="leg-dot" style="background:#f1c40f"></div><span class="leg-txt">≤ 90 days</span></div>
-  <div class="leg-row"><div class="leg-dot" style="background:#a9784f"></div><span class="leg-txt">older</span></div>
-  <hr class="leg-divider">
-  <h4>Size (acres)</h4>
-  <div class="leg-size-row"><div class="leg-circle" style="width:7px;height:7px"></div><span class="leg-txt">~100</span></div>
-  <div class="leg-size-row"><div class="leg-circle" style="width:14px;height:14px"></div><span class="leg-txt">~10k</span></div>
-  <div class="leg-size-row"><div class="leg-circle" style="width:22px;height:22px"></div><span class="leg-txt">100k+</span></div>
+  <h4>Fire intensity (FRP)</h4>
+  <div class="leg-row"><div class="leg-dot" style="background:#e74c3c"></div><span class="leg-txt">≥ 200 MW</span></div>
+  <div class="leg-row"><div class="leg-dot" style="background:#e67e22"></div><span class="leg-txt">50–200 MW</span></div>
+  <div class="leg-row"><div class="leg-dot" style="background:#f39c12"></div><span class="leg-txt">10–50 MW</span></div>
+  <div class="leg-row"><div class="leg-dot" style="background:#f1c40f"></div><span class="leg-txt">&lt; 10 MW</span></div>
+  <div class="leg-note">Each dot is a satellite thermal-anomaly detection. Click one for details. FRP = fire radiative power.</div>
 </div>
 
+<div id="loading"><div class="spinner"></div><p>Loading fire detections…</p></div>
 <div id="map"></div>
 
 <script>
   const map = L.map('map', { preferCanvas: true, zoomControl: true, worldCopyJump: true })
-               .setView([20, 10], 2);
+               .setView([25, 10], 3);
 
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CartoDB</a> | Data: <a href="https://eonet.gsfc.nasa.gov/" style="color:#f5945b">NASA EONET</a>',
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CartoDB</a> | Data: <a href="https://firms.modaps.eosdis.nasa.gov/" style="color:#f5945b">NASA FIRMS</a>',
     subdomains: 'abcd', maxZoom: 19
   }).addTo(map);
 
-  // The map wraps horizontally (the world repeats), so draw each fire on the
-  // neighbouring world copies too. 0 = canonical, ±360 = the copies either side.
-  const WORLD_OFFSETS = [-360, 0, 360];
+  const KEY = 'firms_proxy_url';
+  const MAX_RENDER = 15000;   // safety cap so a dense global day can't freeze the page
+  let rawRows = [];
+  let currentSource = 'VIIRS_NOAA20_NRT';
+  let currentDay = 1;
+  let currentMinFrp = 10;
+  let layerGroup = L.layerGroup().addTo(map);
 
-  function radius(acres) {
-    if (acres == null || acres <= 0) return 3;
-    return Math.max(3, Math.min(18, 3 + Math.log10(acres + 1) * 2.4));
+  function setStatus(state, text) {
+    document.getElementById('statusDot').className = 'status-dot ' + state;
+    document.getElementById('statusText').textContent = text;
   }
 
-  function ageDays(dateStr) {
-    return (Date.now() - new Date(dateStr).getTime()) / 86400000;
+  function frpColor(frp) {
+    if (frp >= 200) return '#e74c3c';
+    if (frp >= 50)  return '#e67e22';
+    if (frp >= 10)  return '#f39c12';
+    return '#f1c40f';
+  }
+  function frpRadius(frp) {
+    return Math.max(2, Math.min(9, 2 + Math.log10((frp || 0) + 1) * 1.8));
   }
 
-  function recencyColor(days) {
-    if (days <= 7)  return '#e74c3c';
-    if (days <= 30) return '#f39c12';
-    if (days <= 90) return '#f1c40f';
-    return '#a9784f';
-  }
-
-  function fmtTime(ts) {
-    return new Date(ts).toLocaleString('en-US', {
-      year: 'numeric', month: 'short', day: 'numeric',
-      hour: '2-digit', minute: '2-digit', timeZoneName: 'short'
-    });
-  }
-
-  function fmtAcres(a) {
-    return (a == null) ? 'not reported' : Math.round(a).toLocaleString() + ' acres';
-  }
-
-  function ttHtml(p) {
-    const src = (p.sources && p.sources[0] && p.sources[0].url) ? p.sources[0].url : null;
-    const days = Math.max(0, Math.round(ageDays(p.date)));
+  function popupHtml(r) {
+    const t = String(r.time == null ? '' : r.time).padStart(4, '0');
+    const utc = r.date ? `${r.date} ${t.slice(0,2)}:${t.slice(2)} UTC` : '—';
+    const conf = ({ l: 'low', n: 'nominal', h: 'high' })[r.conf] || r.conf || '—';
+    const dn = r.dn === 'D' ? ' (day)' : r.dn === 'N' ? ' (night)' : '';
     return `<div class="tt">
-      <div class="tt-place">${p.title || 'Wildfire'}</div>
+      <div class="tt-place">Active fire detection</div>
       <div class="tt-grid">
-        <span class="tt-key">Last detected</span><span class="tt-val hot">${days} day${days === 1 ? '' : 's'} ago</span>
-        <span class="tt-key">Date</span><span class="tt-val">${fmtTime(p.date)}</span>
-        <span class="tt-key">Size</span><span class="tt-val">${fmtAcres(p.magnitudeValue)}</span>
-        ${p.description ? `<span class="tt-key">Where</span><span class="tt-val">${p.description}</span>` : ''}
+        <span class="tt-key">Intensity</span><span class="tt-val hot">${(r.frp || 0).toFixed(1)} MW</span>
+        <span class="tt-key">Brightness</span><span class="tt-val">${r.bright != null ? r.bright.toFixed(1) + ' K' : '—'}</span>
+        <span class="tt-key">Confidence</span><span class="tt-val">${conf}</span>
+        <span class="tt-key">Detected</span><span class="tt-val">${utc}</span>
+        <span class="tt-key">Satellite</span><span class="tt-val">${(r.sat || '—') + dn}</span>
+        <span class="tt-key">Location</span><span class="tt-val">${r.lat.toFixed(3)}, ${r.lon.toFixed(3)}</span>
       </div>
     </div>`;
   }
 
-  let allFeatures = [];
-  let layerGroup = L.layerGroup().addTo(map);
-  let currentAcres = 0;
-  let currentDays = 90;
-
-  function renderMap() {
-    layerGroup.clearLayers();
-    const filtered = allFeatures.filter(f => {
-      const p = f.properties;
-      if (ageDays(p.date) > currentDays) return false;
-      if (currentAcres > 0 && !(p.magnitudeValue >= currentAcres)) return false;
-      return true;
-    }).sort((a, b) => (a.properties.magnitudeValue || 0) - (b.properties.magnitudeValue || 0));
-
-    filtered.forEach(f => {
-      const [lon, lat] = f.geometry.coordinates;
-      const p = f.properties;
-      const col = recencyColor(ageDays(p.date));
-      const r = radius(p.magnitudeValue);
-      const html = ttHtml(p);
-      const links = [];
-      if (p.sources && p.sources[0] && p.sources[0].url) links.push(`<a href="${p.sources[0].url}" target="_blank" style="color:#e67e22">Source ↗</a>`);
-      if (p.link) links.push(`<a href="${p.link}" target="_blank" style="color:#e67e22">EONET ↗</a>`);
-      const popup = html + (links.length ? `<div style="padding:0 12px 9px;font-size:10px;color:#aaa">${links.join(' · ')}</div>` : '');
-
-      WORLD_OFFSETS.forEach(off => {
-        const c = L.circleMarker([lat, lon + off], {
-          radius: r,
-          fillColor: col,
-          color: 'rgba(0,0,0,0.5)',
-          weight: 0.5,
-          fillOpacity: 0.8,
-          opacity: 1
-        });
-        c.bindTooltip(html, { sticky: true, opacity: 1, className: '' });
-        c.bindPopup(popup);
-        layerGroup.addLayer(c);
+  function parseCsv(text) {
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return [];
+    const header = lines[0].split(',').map(h => h.trim());
+    const idx = {}; header.forEach((h, i) => idx[h] = i);
+    if (!('latitude' in idx) || !('longitude' in idx)) return null; // not a FIRMS CSV
+    const bi = ('bright_ti4' in idx) ? idx.bright_ti4 : idx.brightness;
+    const rows = [];
+    for (let k = 1; k < lines.length; k++) {
+      const c = lines[k].split(',');
+      const lat = parseFloat(c[idx.latitude]), lon = parseFloat(c[idx.longitude]);
+      if (isNaN(lat) || isNaN(lon)) continue;
+      rows.push({
+        lat, lon,
+        frp: parseFloat(c[idx.frp]) || 0,
+        bright: (bi != null && c[bi] != null) ? parseFloat(c[bi]) : null,
+        conf: idx.confidence != null ? c[idx.confidence] : '',
+        date: idx.acq_date != null ? c[idx.acq_date] : '',
+        time: idx.acq_time != null ? c[idx.acq_time] : '',
+        sat: idx.satellite != null ? c[idx.satellite] : '',
+        dn: idx.daynight != null ? c[idx.daynight] : ''
       });
-    });
-
-    document.getElementById('vis').textContent = filtered.length.toLocaleString();
+    }
+    return rows;
   }
 
-  const DATA_URL = 'https://eonet.gsfc.nasa.gov/api/v3/events/geojson?category=wildfires&status=open';
-
-  fetch(DATA_URL)
-    .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-    .then(data => {
-      document.getElementById('loading').style.display = 'none';
-      allFeatures = (data.features || []).filter(f => f.geometry && f.geometry.type === 'Point' && f.properties && f.properties.date);
-      document.getElementById('tot').textContent = allFeatures.length.toLocaleString();
-      let newest = 0;
-      allFeatures.forEach(f => { const t = new Date(f.properties.date).getTime(); if (t > newest) newest = t; });
-      if (newest) document.getElementById('ts').textContent = 'Most recent: ' + fmtTime(newest);
-      renderMap();
-    })
-    .catch(err => {
-      document.getElementById('loading').querySelector('p').textContent = 'Failed to load data';
-      document.getElementById('error-msg').textContent = err.message + ' — check internet connection';
+  function render() {
+    layerGroup.clearLayers();
+    let filtered = rawRows.filter(r => r.frp >= currentMinFrp);
+    const totalFiltered = filtered.length;
+    let capped = false;
+    if (filtered.length > MAX_RENDER) {
+      filtered = filtered.slice().sort((a, b) => b.frp - a.frp).slice(0, MAX_RENDER);
+      capped = true;
+    }
+    filtered.forEach(r => {
+      const m = L.circleMarker([r.lat, r.lon], {
+        radius: frpRadius(r.frp), fillColor: frpColor(r.frp),
+        color: 'rgba(0,0,0,0.4)', weight: 0.4, fillOpacity: 0.85, opacity: 1
+      });
+      m.bindPopup(() => popupHtml(r));
+      layerGroup.addLayer(m);
     });
+    document.getElementById('vis').textContent = Math.min(totalFiltered, MAX_RENDER).toLocaleString();
+    document.getElementById('tot').textContent = rawRows.length.toLocaleString();
+    document.getElementById('capnote').textContent = capped
+      ? `Top ${MAX_RENDER.toLocaleString()} by intensity shown — raise "min intensity" to focus.` : '';
+  }
 
-  const acreSlider = document.getElementById('acreSlider');
-  acreSlider.addEventListener('input', () => {
-    currentAcres = parseInt(acreSlider.value);
-    document.getElementById('acreVal').textContent = currentAcres === 0 ? '0 ac' : '≥ ' + currentAcres.toLocaleString() + ' ac';
-    renderMap();
+  function fetchData() {
+    const proxy = localStorage.getItem(KEY);
+    if (!proxy) return;
+    const sep = proxy.includes('?') ? '&' : '?';
+    const url = `${proxy}${sep}source=${encodeURIComponent(currentSource)}&area=world&day=${currentDay}`;
+    document.getElementById('loading').classList.add('show');
+    setStatus('connecting', 'Loading…');
+    fetch(url)
+      .then(r => r.text().then(text => ({ ok: r.ok, status: r.status, text })))
+      .then(({ ok, status, text }) => {
+        document.getElementById('loading').classList.remove('show');
+        const rows = parseCsv(text);
+        if (rows === null) {
+          setStatus('error', 'Proxy/FIRMS error');
+          document.getElementById('ts').textContent = (text || `HTTP ${status}`).slice(0, 120);
+          return;
+        }
+        rawRows = rows;
+        setStatus('live', 'Live');
+        const when = rows.length ? `${rows[rows.length-1].date} ${String(rows[rows.length-1].time).padStart(4,'0')} UTC (last row)` : '';
+        document.getElementById('ts').textContent = when;
+        render();
+      })
+      .catch(err => {
+        document.getElementById('loading').classList.remove('show');
+        setStatus('error', 'Fetch failed');
+        document.getElementById('ts').textContent = String(err).slice(0, 120) + ' — check the proxy URL';
+      });
+  }
+
+  function showSetup() {
+    document.getElementById('setupForm').style.display = 'block';
+    document.getElementById('controls').style.display = 'none';
+    setStatus('warn', 'Not configured');
+    document.getElementById('statusDot').className = 'status-dot';
+  }
+  function showControls() {
+    document.getElementById('setupForm').style.display = 'none';
+    document.getElementById('controls').style.display = 'block';
+  }
+
+  function init() {
+    if (localStorage.getItem(KEY)) { showControls(); fetchData(); }
+    else showSetup();
+  }
+
+  document.getElementById('connectBtn').addEventListener('click', () => {
+    const v = document.getElementById('proxyInput').value.trim();
+    if (!/^https?:\/\//.test(v)) { alert('Enter a full URL starting with https://'); return; }
+    localStorage.setItem(KEY, v.replace(/\/+$/, ''));
+    showControls(); fetchData();
+  });
+  document.getElementById('proxyInput').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('connectBtn').click(); });
+
+  document.getElementById('changeProxy').addEventListener('click', () => {
+    localStorage.removeItem(KEY);
+    layerGroup.clearLayers(); rawRows = [];
+    document.getElementById('proxyInput').value = '';
+    showSetup();
   });
 
-  const daysSlider = document.getElementById('daysSlider');
-  daysSlider.addEventListener('input', () => {
-    currentDays = parseInt(daysSlider.value);
-    document.getElementById('daysVal').textContent = currentDays + (currentDays === 1 ? ' day' : ' days');
-    renderMap();
+  document.getElementById('sourceSel').addEventListener('change', e => { currentSource = e.target.value; fetchData(); });
+  document.getElementById('daySlider').addEventListener('input', e => {
+    currentDay = parseInt(e.target.value);
+    document.getElementById('dayVal').textContent = currentDay + (currentDay === 1 ? ' day' : ' days');
+    fetchData();
   });
+  document.getElementById('frpSlider').addEventListener('input', e => {
+    currentMinFrp = parseInt(e.target.value);
+    document.getElementById('frpVal').textContent = currentMinFrp === 0 ? 'all' : '≥ ' + currentMinFrp + ' MW';
+    render();
+  });
+
+  init();
 </script>
 </body>
 </html>
