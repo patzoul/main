@@ -101,7 +101,13 @@
       background: rgba(255,255,255,0.97) !important; color: #222 !important;
       border-radius: 8px !important;
     }
-    .tt { padding: 3px 4px; min-width: 180px; }
+    .leaflet-tooltip {
+      background: rgba(255,255,255,0.97) !important; color: #222 !important;
+      border: none !important; border-radius: 8px !important;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.3) !important; padding: 0 !important;
+    }
+    .leaflet-tooltip::before { display: none !important; }
+    .tt { padding: 8px 11px; min-width: 180px; }
     .tt-place { font-size: 12px; font-weight: 700; color: #222; margin-bottom: 6px; }
     .tt-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
     .tt-key { font-size: 11px; color: #888; }
@@ -259,6 +265,7 @@
         radius: frpRadius(r.frp), fillColor: frpColor(r.frp),
         color: 'rgba(0,0,0,0.4)', weight: 0.4, fillOpacity: 0.85, opacity: 1
       });
+      m.bindTooltip(() => popupHtml(r), { sticky: true, opacity: 1 });
       m.bindPopup(() => popupHtml(r));
       layerGroup.addLayer(m);
     });
