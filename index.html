@@ -41,6 +41,8 @@
     a.card.fires:hover { border-color: rgba(245,148,91,0.5); background: rgba(245,148,91,0.08); }
     a.card.hazards h2 { color: #7ec8f7; }
     a.card.hazards:hover { border-color: rgba(126,200,247,0.5); background: rgba(126,200,247,0.08); }
+    a.card.weather h2 { color: #4fc3d9; }
+    a.card.weather:hover { border-color: rgba(79,195,217,0.5); background: rgba(79,195,217,0.08); }
     a.card.malacca h2 { color: #f0b15a; }
     a.card.malacca:hover { border-color: rgba(240,177,90,0.5); background: rgba(240,177,90,0.08); }
     a.card.worldships h2 { color: #6ee7b7; }
@@ -60,7 +62,7 @@
 <body>
   <div class="wrap">
     <h1>Live Maps</h1>
-    <div class="subtitle">Earthquakes, wildfires, natural hazards, ship traffic, submarine cables & electricity prices — live data</div>
+    <div class="subtitle">Earthquakes, wildfires, natural hazards, weather radar, ship traffic, submarine cables & electricity prices — live data</div>
     <div class="cards">
       <a class="card" href="world_earthquakes.html">
         <h2>World Map</h2>
@@ -77,6 +79,10 @@
       <a class="card hazards" href="natural_events.html">
         <h2>Natural Hazards</h2>
         <p>Active natural events worldwide (NASA EONET) — volcanoes, severe storms, floods, icebergs and more, filterable by type.</p>
+      </a>
+      <a class="card weather" href="weather_radar.html">
+        <h2>Weather Radar</h2>
+        <p>Animated global precipitation radar (RainViewer) — play the last ~2 hours, scrub the timeline, adjust opacity. No key needed.</p>
       </a>
       <a class="card malacca" href="malacca_ships.html">
         <h2>Strait of Malacca</h2>

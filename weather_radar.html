@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weather Radar — RainViewer</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0d0d1a; }
+    #map { width: 100vw; height: 100vh; background: #0a0a14; }
+
+    #panel {
+      position: absolute; top: 14px; left: 14px; z-index: 1000;
+      background: rgba(10, 10, 25, 0.90);
+      border: 1px solid rgba(79, 195, 217, 0.30);
+      border-radius: 10px; padding: 14px 18px; width: 260px;
+      backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    #panel h2 { font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #4fc3d9; margin-bottom: 2px; text-transform: uppercase; }
+    #panel .subtitle { font-size: 11px; color: #778; margin-bottom: 12px; }
+
+    .play-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    #playBtn {
+      width: 38px; height: 38px; flex-shrink: 0; border-radius: 50%;
+      background: #4fc3d9; color: #08222a; border: none; cursor: pointer;
+      font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    }
+    #playBtn:hover { background: #6fd4e8; }
+    .frame-time { font-size: 13px; color: #dde; font-weight: 600; }
+    .frame-rel { font-size: 11px; color: #4fc3d9; }
+
+    .ctrl-label { display: flex; justify-content: space-between; font-size: 11px; color: #aab; margin: 10px 0 5px; }
+    .ctrl-label .val { color: #4fc3d9; font-weight: 700; font-size: 12px; }
+    input[type="range"] { width: 100%; accent-color: #4fc3d9; cursor: pointer; height: 4px; }
+    .scrub-ends { display: flex; justify-content: space-between; font-size: 9px; color: #556; margin-top: 2px; }
+
+    .legend {
+      position: absolute; bottom: 28px; right: 14px; z-index: 1000;
+      background: rgba(10, 10, 25, 0.90);
+      border: 1px solid rgba(79, 195, 217, 0.30);
+      border-radius: 10px; padding: 12px 16px; min-width: 150px;
+      backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    .legend h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #4fc3d9; margin-bottom: 8px; }
+    .bar { height: 10px; border-radius: 3px; margin-bottom: 5px;
+      background: linear-gradient(90deg,#6ad1e3,#3cc46e,#e9d400,#ef8a00,#d81e1e,#b02fb0); }
+    .bar-labels { display: flex; justify-content: space-between; font-size: 10px; color: #99a; }
+    .legend .note { font-size: 10px; color: #556; margin-top: 8px; line-height: 1.4; }
+
+    #loading { position: absolute; inset: 0; background: rgba(10,10,25,0.88); display: flex; align-items: center; justify-content: center; z-index: 2000; flex-direction: column; gap: 14px; }
+    #loading.hide { display: none; }
+    .spinner { width: 36px; height: 36px; border: 3px solid rgba(79,195,217,0.2); border-top-color: #4fc3d9; border-radius: 50%; animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: #4fc3d9; font-size: 13px; }
+    #error-msg { color: #e74c3c; font-size: 12px; max-width: 280px; text-align: center; }
+
+    .source-note { position: absolute; bottom: 8px; left: 14px; z-index: 1000; font-size: 10px; color: #445; }
+    .source-note a { color: #5a7fa8; }
+  </style>
+</head>
+<body>
+
+<div id="loading"><div class="spinner"></div><p>Loading radar frames…</p><div id="error-msg"></div></div>
+
+<div id="panel">
+  <h2>Weather Radar</h2>
+  <div class="subtitle">RainViewer · global precipitation</div>
+  <div class="play-row">
+    <button id="playBtn" aria-label="Play/pause">❚❚</button>
+    <div>
+      <div class="frame-time" id="frameTime">—</div>
+      <div class="frame-rel" id="frameRel"></div>
+    </div>
+  </div>
+  <div class="ctrl-label">Timeline <span class="val" id="frameIdx"></span></div>
+  <input type="range" id="scrub" min="0" max="0" step="1" value="0">
+  <div class="scrub-ends"><span id="oldest">−2 h</span><span>now</span></div>
+  <div class="ctrl-label" style="margin-top:12px">Opacity <span class="val" id="opVal">75%</span></div>
+  <input type="range" id="opacity" min="20" max="100" step="5" value="75">
+</div>
+
+<div class="legend">
+  <h4>Precipitation</h4>
+  <div class="bar"></div>
+  <div class="bar-labels"><span>light</span><span>heavy</span></div>
+  <div class="note">Bluer tones can indicate snow. Frames update every ~10 min.</div>
+</div>
+
+<div class="source-note">
+  Data: <a href="https://www.rainviewer.com/" target="_blank">RainViewer</a> · weather radar composite
+</div>
+
+<div id="map"></div>
+
+<script>
+  const map = L.map('map', { preferCanvas: true, zoomControl: true, worldCopyJump: true }).setView([30, 5], 3);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CartoDB</a> | Radar: <a href="https://www.rainviewer.com/" style="color:#4fc3d9">RainViewer</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(map);
+
+  const API = 'https://api.rainviewer.com/public/weather-maps.json';
+  let host = '';
+  let frames = [];          // { time, path }
+  let nowTime = 0;          // time of the latest observed (past) frame
+  const frameLayers = {};   // idx -> L.tileLayer (created lazily, opacity-toggled for smooth looping)
+  let current = 0, playing = false, timer = null, opacity = 0.75;
+
+  const scrub = document.getElementById('scrub');
+  const playBtn = document.getElementById('playBtn');
+
+  function tileUrl(f) { return `${host}${f.path}/256/{z}/{x}/{y}/2/1_1.png`; }
+
+  function ensureLayer(i) {
+    if (!frameLayers[i]) {
+      frameLayers[i] = L.tileLayer(tileUrl(frames[i]), {
+        opacity: 0, zIndex: 300, crossOrigin: true,
+        attribution: '<a href="https://www.rainviewer.com/">RainViewer</a>'
+      }).addTo(map);
+    }
+    return frameLayers[i];
+  }
+
+  function fmtLabel(i) {
+    const f = frames[i];
+    const d = new Date(f.time * 1000);
+    document.getElementById('frameTime').textContent = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const mins = Math.round((f.time - nowTime) / 60);
+    let rel;
+    if (mins === 0) rel = 'now (latest)';
+    else if (mins < 0) rel = `${mins} min`;
+    else rel = `+${mins} min · forecast`;
+    document.getElementById('frameRel').textContent = rel;
+    document.getElementById('frameIdx').textContent = `${i + 1}/${frames.length}`;
+  }
+
+  function showFrame(i) {
+    ensureLayer(i).setOpacity(opacity);
+    Object.keys(frameLayers).forEach(k => { if (+k !== i) frameLayers[k].setOpacity(0); });
+    current = i;
+    scrub.value = i;
+    fmtLabel(i);
+  }
+
+  function play() { playing = true; playBtn.textContent = '❚❚'; clearInterval(timer); timer = setInterval(() => showFrame((current + 1) % frames.length), 550); }
+  function pause() { playing = false; playBtn.textContent = '►'; clearInterval(timer); }
+
+  function loadFrames(autoplay) {
+    return fetch(API)
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+      .then(data => {
+        host = data.host;
+        const past = data.radar && data.radar.past ? data.radar.past : [];
+        const nowcast = data.radar && data.radar.nowcast ? data.radar.nowcast : [];
+        if (!past.length) throw new Error('no radar frames available');
+        frames = past.concat(nowcast);
+        nowTime = past[past.length - 1].time;
+        // clear old layers on refresh
+        Object.values(frameLayers).forEach(l => map.removeLayer(l));
+        for (const k in frameLayers) delete frameLayers[k];
+        scrub.max = frames.length - 1;
+        const oldestMin = Math.round((frames[0].time - nowTime) / 60);
+        document.getElementById('oldest').textContent = oldestMin + ' min';
+        const nowIdx = past.length - 1;
+        showFrame(nowIdx);
+        document.getElementById('loading').classList.add('hide');
+        if (autoplay) play();
+      })
+      .catch(err => {
+        document.getElementById('loading').querySelector('p').textContent = 'Failed to load radar';
+        document.getElementById('error-msg').textContent = err.message + ' — check internet connection';
+      });
+  }
+
+  playBtn.addEventListener('click', () => { playing ? pause() : play(); });
+  scrub.addEventListener('input', () => { pause(); showFrame(parseInt(scrub.value)); });
+  document.getElementById('opacity').addEventListener('input', e => {
+    opacity = parseInt(e.target.value) / 100;
+    document.getElementById('opVal').textContent = e.target.value + '%';
+    if (frameLayers[current]) frameLayers[current].setOpacity(opacity);
+  });
+
+  loadFrames(true);
+  // Refresh the frame list every 10 minutes to pull in newer radar.
+  setInterval(() => loadFrames(playing), 10 * 60 * 1000);
+</script>
+</body>
+</html>
