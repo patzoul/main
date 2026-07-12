@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Middle East Fire Watch — NASA FIRMS</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0d0d1a; }
+    #map { width: 100vw; height: 100vh; background: #0a0a14; }
+
+    #panel {
+      position: absolute; top: 14px; left: 14px; z-index: 1000;
+      background: rgba(10, 10, 25, 0.92);
+      border: 1px solid rgba(240, 130, 90, 0.30);
+      border-radius: 10px; padding: 13px 16px; width: 270px;
+      max-height: calc(100vh - 28px); overflow-y: auto;
+      backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    #panel h2 { font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #f0825a; margin-bottom: 2px; text-transform: uppercase; }
+    #panel .subtitle { font-size: 11px; color: #778; margin-bottom: 10px; }
+
+    .status-row { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #aab; margin-bottom: 10px; }
+    .status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: #f1c40f; }
+    .status-dot.connecting { background: #f1c40f; animation: pulse 1.2s infinite; }
+    .status-dot.live { background: #2ecc71; }
+    .status-dot.error { background: #e74c3c; }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    #setupForm { display: none; }
+    #setupForm p { font-size: 11px; color: #99a; line-height: 1.5; margin-bottom: 8px; }
+    #setupForm a { color: #f0825a; }
+    #proxyInput { width: 100%; padding: 7px 9px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(240,130,90,0.25); border-radius: 6px; color: #dde; margin-bottom: 8px; outline: none; }
+    #connectBtn { width: 100%; padding: 8px; font-size: 12px; font-weight: 700; text-transform: uppercase; background: #f0825a; color: #0d0d1a; border: none; border-radius: 6px; cursor: pointer; }
+
+    #controls { display: none; }
+    .ctrl-label { display: flex; justify-content: space-between; font-size: 11px; color: #aab; margin: 9px 0 4px; }
+    .ctrl-label:first-child { margin-top: 0; }
+    .ctrl-label .val { color: #f0825a; font-weight: 700; font-size: 12px; }
+    select { width: 100%; padding: 5px 8px; font-size: 12px; background: rgba(255,255,255,0.06); border: 1px solid rgba(240,130,90,0.25); border-radius: 6px; color: #dde; outline: none; cursor: pointer; }
+    input[type="range"] { width: 100%; accent-color: #f0825a; cursor: pointer; height: 4px; }
+    .chk { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #aab; margin: 9px 0; cursor: pointer; user-select: none; }
+    .chk input { accent-color: #f0825a; cursor: pointer; }
+
+    .disclaimer { font-size: 10px; color: #8a7a55; line-height: 1.5; margin: 10px 0; padding: 8px 10px; background: rgba(241,196,15,0.06); border: 1px solid rgba(241,196,15,0.18); border-radius: 6px; }
+
+    .list-head { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #f0825a; margin: 10px 0 6px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); }
+    #stats { font-size: 11px; color: #889; margin-bottom: 8px; }
+    #stats b { color: #f0825a; }
+    #changeProxy { color: #5a7fa8; cursor: pointer; text-decoration: underline; font-size: 10px; }
+    .flag-item { padding: 6px 8px; margin-bottom: 5px; border-radius: 6px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06); cursor: pointer; transition: background 0.12s; }
+    .flag-item:hover { background: rgba(240,130,90,0.10); border-color: rgba(240,130,90,0.35); }
+    .flag-item .fac { font-size: 11px; color: #dde; font-weight: 600; line-height: 1.3; }
+    .flag-item .meta { font-size: 10px; color: #889; margin-top: 2px; }
+    .flag-item .meta .hot { color: #e74c3c; font-weight: 700; }
+    .flag-none { font-size: 11px; color: #667; line-height: 1.5; }
+
+    .legend { position: absolute; bottom: 26px; right: 14px; z-index: 1000; background: rgba(10, 10, 25, 0.90); border: 1px solid rgba(240,130,90,0.30); border-radius: 10px; padding: 11px 14px; min-width: 150px; backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
+    .legend h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #f0825a; margin-bottom: 7px; }
+    .leg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 11px; color: #aab; }
+    .leg-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.2); }
+    .leg-flag { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; background: #e74c3c; border: 2px solid #fff; }
+    .leg-fac { width: 9px; height: 9px; flex-shrink: 0; border: 1.5px solid #7ec8f7; transform: rotate(45deg); }
+    .leg-note { font-size: 10px; color: #556; line-height: 1.4; margin-top: 6px; }
+
+    #loading { position: absolute; inset: 0; background: rgba(10,10,25,0.55); display: none; align-items: center; justify-content: center; z-index: 1500; flex-direction: column; gap: 12px; pointer-events: none; }
+    #loading.show { display: flex; }
+    .spinner { width: 34px; height: 34px; border: 3px solid rgba(240,130,90,0.2); border-top-color: #f0825a; border-radius: 50%; animation: spin 0.9s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: #f0825a; font-size: 12px; }
+
+    .facLabel { color: #7ec8f7; font-size: 10px; white-space: nowrap; text-shadow: 0 1px 3px #000; pointer-events: none; }
+    .leaflet-tooltip { background: rgba(255,255,255,0.97) !important; color: #222 !important; border: none !important; border-radius: 8px !important; box-shadow: 0 3px 14px rgba(0,0,0,0.3) !important; padding: 0 !important; }
+    .leaflet-tooltip::before { display: none !important; }
+    .leaflet-popup-content-wrapper { background: rgba(255,255,255,0.97) !important; color: #222 !important; border-radius: 8px !important; }
+    .tt { padding: 8px 11px; min-width: 180px; }
+    .tt-place { font-size: 12px; font-weight: 700; color: #222; margin-bottom: 6px; }
+    .tt-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
+    .tt-key { font-size: 11px; color: #888; }
+    .tt-val { font-size: 11px; font-weight: 600; color: #333; }
+    .tt-val.hot { color: #c0392b; }
+    .tt-val.flag { color: #b9770e; }
+  </style>
+</head>
+<body>
+
+<div id="panel">
+  <h2>Middle East Fire Watch</h2>
+  <div class="subtitle">NASA FIRMS · fires near energy infrastructure</div>
+
+  <div class="status-row"><div class="status-dot" id="statusDot"></div><span id="statusText">Not configured</span></div>
+
+  <div id="setupForm">
+    <p>Uses NASA FIRMS via your proxy (same one as the World Wildfires map). Paste your Cloudflare Worker URL:</p>
+    <input type="text" id="proxyInput" placeholder="https://firms-proxy.you.workers.dev" autocomplete="off" spellcheck="false">
+    <button id="connectBtn">Connect</button>
+  </div>
+
+  <div id="controls">
+    <div class="ctrl-label" style="margin-top:0">Satellite source</div>
+    <select id="sourceSel">
+      <option value="VIIRS_NOAA20_NRT">VIIRS (NOAA-20) · 375 m</option>
+      <option value="VIIRS_SNPP_NRT">VIIRS (Suomi-NPP) · 375 m</option>
+      <option value="VIIRS_NOAA21_NRT">VIIRS (NOAA-21) · 375 m</option>
+      <option value="MODIS_NRT">MODIS (Terra/Aqua) · 1 km</option>
+    </select>
+    <div class="ctrl-label">Day range &nbsp;<span class="val" id="dayVal">2 days</span></div>
+    <input type="range" id="daySlider" min="1" max="3" step="1" value="2">
+    <div class="ctrl-label">Min intensity &nbsp;<span class="val" id="frpVal">all</span></div>
+    <input type="range" id="frpSlider" min="0" max="200" step="5" value="0">
+    <div class="ctrl-label">Match radius &nbsp;<span class="val" id="radVal">10 km</span></div>
+    <input type="range" id="radSlider" min="3" max="25" step="1" value="10">
+    <label class="chk"><input type="checkbox" id="nightChk"> Night detections only</label>
+
+    <div class="disclaimer">
+      <b>Candidates, not confirmations.</b> This flags fires <i>near</i> major
+      energy sites. Routine gas flaring also shows here — a strike looks like a
+      sudden, unusually large/hot fire (especially at night) at a refinery or
+      terminal. Corroborate with news before drawing conclusions.
+    </div>
+
+    <div class="list-head">Fires near infrastructure</div>
+    <div id="stats">Flagged <b id="flagCount">0</b> · <b id="detCount">0</b> detections in view</div>
+    <div id="flagList"></div>
+    <div style="margin-top:8px"><span id="changeProxy">Change proxy URL</span></div>
+  </div>
+</div>
+
+<div class="legend">
+  <h4>Fire intensity (FRP)</h4>
+  <div class="leg-row"><div class="leg-dot" style="background:#e74c3c"></div>≥ 200 MW</div>
+  <div class="leg-row"><div class="leg-dot" style="background:#e67e22"></div>50–200 MW</div>
+  <div class="leg-row"><div class="leg-dot" style="background:#f39c12"></div>10–50 MW</div>
+  <div class="leg-row"><div class="leg-dot" style="background:#f1c40f"></div>&lt; 10 MW</div>
+  <div class="leg-row" style="margin-top:7px;padding-top:7px;border-top:1px solid rgba(255,255,255,0.08)"><div class="leg-flag"></div>Near infrastructure</div>
+  <div class="leg-row"><div class="leg-fac"></div>Energy facility</div>
+  <div class="leg-note">FRP = fire radiative power (heat output).</div>
+</div>
+
+<div id="loading"><div class="spinner"></div><p>Loading detections…</p></div>
+<div id="map"></div>
+
+<script>
+  const map = L.map('map', { preferCanvas: true, zoomControl: true }).setView([27, 47], 5);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CartoDB</a> | Fires: <a href="https://firms.modaps.eosdis.nasa.gov/" style="color:#f0825a">NASA FIRMS</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(map);
+
+  // Major Middle East energy facilities (approximate locations). Refineries and
+  // export/storage terminals are the notable ones — a large fire here is more
+  // likely an incident than the routine flaring seen at upstream oil fields.
+  const FACILITIES = [
+    {n:'Ras Tanura Refinery/Terminal (SA)', lat:26.70, lon:50.05},
+    {n:'Abqaiq Processing (SA)', lat:25.93, lon:49.68},
+    {n:'Jeddah Refinery (SA)', lat:21.35, lon:39.17},
+    {n:'Yanbu Refinery/Terminal (SA)', lat:24.06, lon:38.06},
+    {n:'Riyadh Refinery (SA)', lat:24.55, lon:46.86},
+    {n:'Jubail Refinery (SA)', lat:27.00, lon:49.60},
+    {n:'Rabigh Refinery (SA)', lat:22.80, lon:39.03},
+    {n:'Ruwais Refinery (UAE)', lat:24.11, lon:52.73},
+    {n:'Jebel Ali (UAE)', lat:25.00, lon:55.06},
+    {n:'Fujairah Oil Terminal (UAE)', lat:25.15, lon:56.36},
+    {n:'Abadan Refinery (Iran)', lat:30.34, lon:48.29},
+    {n:'Isfahan Refinery (Iran)', lat:32.75, lon:51.55},
+    {n:'Bandar Abbas Refinery (Iran)', lat:27.35, lon:56.28},
+    {n:'Tehran Refinery (Iran)', lat:35.55, lon:51.44},
+    {n:'Kharg Island Terminal (Iran)', lat:29.26, lon:50.33},
+    {n:'Tabriz Refinery (Iran)', lat:38.12, lon:46.20},
+    {n:'Arak Refinery (Iran)', lat:34.08, lon:49.75},
+    {n:'Mina Al-Ahmadi Refinery (Kuwait)', lat:29.07, lon:48.13},
+    {n:'Mina Abdullah Refinery (Kuwait)', lat:29.02, lon:48.16},
+    {n:'Al-Zour Refinery (Kuwait)', lat:28.72, lon:48.38},
+    {n:'Baiji Refinery (Iraq)', lat:34.93, lon:43.49},
+    {n:'Shuaiba/Basra Refinery (Iraq)', lat:30.43, lon:47.71},
+    {n:'Daura Refinery, Baghdad (Iraq)', lat:33.27, lon:44.28},
+    {n:'Ras Laffan (Qatar)', lat:25.91, lon:51.57},
+    {n:'Mesaieed (Qatar)', lat:24.98, lon:51.57},
+    {n:'Sitra Refinery (Bahrain)', lat:26.15, lon:50.63},
+    {n:'Sohar Refinery (Oman)', lat:24.49, lon:56.63},
+    {n:'Mina Al Fahal, Muscat (Oman)', lat:23.63, lon:58.52},
+    {n:'Suez Refineries (Egypt)', lat:29.95, lon:32.55},
+    {n:'Mostorod Refinery, Cairo (Egypt)', lat:30.15, lon:31.27},
+    {n:'Alexandria Refinery (Egypt)', lat:31.15, lon:29.82},
+    {n:'Haifa Refinery (Israel)', lat:32.80, lon:35.05},
+    {n:'Ashdod Refinery (Israel)', lat:31.83, lon:34.65},
+    {n:'Zarqa Refinery (Jordan)', lat:32.08, lon:36.11},
+    {n:'Homs Refinery (Syria)', lat:34.75, lon:36.72},
+    {n:'Banias Refinery (Syria)', lat:35.24, lon:35.95},
+    {n:'Aden Refinery (Yemen)', lat:12.80, lon:44.99}
+  ];
+  const BBOX = '25,12,63,42';   // west,south,east,north
+  const KEY = 'firms_proxy_url';
+
+  let rawRows = [], currentSource = 'VIIRS_NOAA20_NRT', currentDay = 2, currentMinFrp = 0, radiusKm = 10, nightOnly = false;
+  const detLayer = L.layerGroup().addTo(map);
+  const facLayer = L.layerGroup().addTo(map);
+
+  function setStatus(s, t) { document.getElementById('statusDot').className = 'status-dot ' + s; document.getElementById('statusText').textContent = t; }
+  function frpColor(f) { return f >= 200 ? '#e74c3c' : f >= 50 ? '#e67e22' : f >= 10 ? '#f39c12' : '#f1c40f'; }
+  function frpRadius(f) { return Math.max(2.5, Math.min(9, 2.5 + Math.log10((f || 0) + 1) * 1.7)); }
+  function haversine(a, b, c, d) { const R = 6371, p = Math.PI / 180; const dLat = (c - a) * p, dLon = (d - b) * p; const x = Math.sin(dLat/2)**2 + Math.cos(a*p)*Math.cos(c*p)*Math.sin(dLon/2)**2; return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1 - x)); }
+
+  function drawFacilities() {
+    FACILITIES.forEach(f => {
+      const icon = L.divIcon({ className: '', html: '<div style="width:8px;height:8px;border:1.5px solid #7ec8f7;transform:rotate(45deg)"></div>', iconSize: [10, 10], iconAnchor: [5, 5] });
+      L.marker([f.lat, f.lon], { icon, interactive: true }).bindTooltip(f.n, { direction: 'top' }).addTo(facLayer);
+    });
+  }
+
+  function fmtWhen(r) { const t = String(r.time == null ? '' : r.time).padStart(4, '0'); return r.date ? `${r.date} ${t.slice(0,2)}:${t.slice(2)} UTC` : '—'; }
+  function detPopup(r, fac, km) {
+    const conf = ({ l: 'low', n: 'nominal', h: 'high' })[r.conf] || r.conf || '—';
+    const dn = r.dn === 'D' ? 'day' : r.dn === 'N' ? 'night' : '—';
+    return `<div class="tt"><div class="tt-place">Fire detection</div><div class="tt-grid">
+      <span class="tt-key">Intensity</span><span class="tt-val hot">${(r.frp||0).toFixed(1)} MW</span>
+      <span class="tt-key">Brightness</span><span class="tt-val">${r.bright!=null?r.bright.toFixed(1)+' K':'—'}</span>
+      <span class="tt-key">Detected</span><span class="tt-val">${fmtWhen(r)} · ${dn}</span>
+      <span class="tt-key">Confidence</span><span class="tt-val">${conf}</span>
+      ${fac?`<span class="tt-key">Near</span><span class="tt-val flag">${fac.n} · ${km.toFixed(1)} km</span>`:''}
+    </div></div>`;
+  }
+
+  function parseCsv(text) {
+    const lines = text.trim().split(/\r?\n/); if (lines.length < 2) return [];
+    const h = lines[0].split(',').map(s => s.trim()); const idx = {}; h.forEach((x, i) => idx[x] = i);
+    if (!('latitude' in idx) || !('longitude' in idx)) return null;
+    const bi = ('bright_ti4' in idx) ? idx.bright_ti4 : idx.brightness;
+    const rows = [];
+    for (let k = 1; k < lines.length; k++) { const c = lines[k].split(','); const lat = parseFloat(c[idx.latitude]), lon = parseFloat(c[idx.longitude]); if (isNaN(lat) || isNaN(lon)) continue;
+      rows.push({ lat, lon, frp: parseFloat(c[idx.frp]) || 0, bright: bi != null ? parseFloat(c[bi]) : null, conf: idx.confidence != null ? c[idx.confidence] : '', date: idx.acq_date != null ? c[idx.acq_date] : '', time: idx.acq_time != null ? c[idx.acq_time] : '', dn: idx.daynight != null ? c[idx.daynight] : '' }); }
+    return rows;
+  }
+
+  function render() {
+    detLayer.clearLayers();
+    const flagged = [];
+    let shown = 0;
+    rawRows.forEach(r => {
+      if (r.frp < currentMinFrp) return;
+      if (nightOnly && r.dn !== 'N') return;
+      shown++;
+      let best = null, bestD = Infinity;
+      FACILITIES.forEach(f => { const km = haversine(r.lat, r.lon, f.lat, f.lon); if (km < bestD) { bestD = km; best = f; } });
+      const isFlag = bestD <= radiusKm;
+      const color = frpColor(r.frp);
+      const opts = isFlag
+        ? { radius: Math.max(5, frpRadius(r.frp) + 2), fillColor: color, color: '#fff', weight: 2, fillOpacity: 0.9, opacity: 1 }
+        : { radius: frpRadius(r.frp), fillColor: color, color: 'rgba(0,0,0,0.4)', weight: 0.4, fillOpacity: 0.8, opacity: 1 };
+      const m = L.circleMarker([r.lat, r.lon], opts);
+      const html = detPopup(r, isFlag ? best : null, bestD);
+      m.bindTooltip(html, { sticky: true, opacity: 1 });
+      m.bindPopup(html);
+      detLayer.addLayer(m);
+      if (isFlag) flagged.push({ r, fac: best, km: bestD });
+    });
+    flagged.sort((a, b) => b.r.frp - a.r.frp);
+    document.getElementById('flagCount').textContent = flagged.length;
+    document.getElementById('detCount').textContent = shown.toLocaleString();
+    const list = document.getElementById('flagList');
+    list.innerHTML = '';
+    if (!flagged.length) { list.innerHTML = '<div class="flag-none">No detections within the match radius of a listed facility right now.</div>'; return; }
+    flagged.slice(0, 40).forEach(o => {
+      const dn = o.r.dn === 'N' ? 'night' : 'day';
+      const div = document.createElement('div'); div.className = 'flag-item';
+      div.innerHTML = `<div class="fac">${o.fac.n}</div><div class="meta"><span class="hot">${o.r.frp.toFixed(0)} MW</span> · ${o.km.toFixed(1)} km · ${dn} · ${fmtWhen(o.r)}</div>`;
+      div.addEventListener('click', () => { map.flyTo([o.r.lat, o.r.lon], 10); });
+      list.appendChild(div);
+    });
+  }
+
+  function fetchData() {
+    const proxy = localStorage.getItem(KEY); if (!proxy) return;
+    const sep = proxy.includes('?') ? '&' : '?';
+    const url = `${proxy}${sep}source=${encodeURIComponent(currentSource)}&area=${BBOX}&day=${currentDay}`;
+    document.getElementById('loading').classList.add('show'); setStatus('connecting', 'Loading…');
+    fetch(url).then(r => r.text().then(t => ({ ok: r.ok, status: r.status, t })))
+      .then(({ status, t }) => {
+        document.getElementById('loading').classList.remove('show');
+        const rows = parseCsv(t);
+        if (rows === null) { setStatus('error', 'Proxy/FIRMS error'); document.getElementById('flagList').innerHTML = '<div class="flag-none">' + (t || `HTTP ${status}`).slice(0, 120) + '</div>'; return; }
+        rawRows = rows; setStatus('live', 'Live'); render();
+      })
+      .catch(err => { document.getElementById('loading').classList.remove('show'); setStatus('error', 'Fetch failed'); document.getElementById('flagList').innerHTML = '<div class="flag-none">' + String(err).slice(0, 120) + ' — check the proxy URL</div>'; });
+  }
+
+  function showSetup() { document.getElementById('setupForm').style.display = 'block'; document.getElementById('controls').style.display = 'none'; setStatus('connecting', 'Not configured'); document.getElementById('statusDot').className = 'status-dot'; }
+  function showControls() { document.getElementById('setupForm').style.display = 'none'; document.getElementById('controls').style.display = 'block'; }
+
+  document.getElementById('connectBtn').addEventListener('click', () => { const v = document.getElementById('proxyInput').value.trim(); if (!/^https?:\/\//.test(v)) { alert('Enter a full URL starting with https://'); return; } localStorage.setItem(KEY, v.replace(/\/+$/, '')); showControls(); fetchData(); });
+  document.getElementById('proxyInput').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('connectBtn').click(); });
+  document.getElementById('changeProxy').addEventListener('click', () => { localStorage.removeItem(KEY); detLayer.clearLayers(); rawRows = []; document.getElementById('proxyInput').value = ''; showSetup(); });
+  document.getElementById('sourceSel').addEventListener('change', e => { currentSource = e.target.value; fetchData(); });
+  document.getElementById('daySlider').addEventListener('input', e => { currentDay = parseInt(e.target.value); document.getElementById('dayVal').textContent = currentDay + (currentDay === 1 ? ' day' : ' days'); fetchData(); });
+  document.getElementById('frpSlider').addEventListener('input', e => { currentMinFrp = parseInt(e.target.value); document.getElementById('frpVal').textContent = currentMinFrp === 0 ? 'all' : '≥ ' + currentMinFrp + ' MW'; render(); });
+  document.getElementById('radSlider').addEventListener('input', e => { radiusKm = parseInt(e.target.value); document.getElementById('radVal').textContent = radiusKm + ' km'; render(); });
+  document.getElementById('nightChk').addEventListener('change', e => { nightOnly = e.target.checked; render(); });
+
+  drawFacilities();
+  if (localStorage.getItem(KEY)) { showControls(); fetchData(); } else showSetup();
+</script>
+</body>
+</html>
