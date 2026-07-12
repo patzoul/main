@@ -152,8 +152,8 @@
     </select>
     <div class="ctrl-label">Day range &nbsp;<span class="val" id="dayVal">1 day</span></div>
     <input type="range" id="daySlider" min="1" max="3" step="1" value="1">
-    <div class="ctrl-label">Min intensity &nbsp;<span class="val" id="frpVal">≥ 10 MW</span></div>
-    <input type="range" id="frpSlider" min="0" max="200" step="5" value="10">
+    <div class="ctrl-label">Min intensity &nbsp;<span class="val" id="frpVal">≥ 200 MW</span></div>
+    <input type="range" id="frpSlider" min="0" max="200" step="5" value="200">
     <div id="stats">
       Showing <b id="vis">—</b> of <b id="tot">—</b> detections
       <div class="sub" id="capnote"></div>
@@ -189,7 +189,7 @@
   let rawRows = [];
   let currentSource = 'VIIRS_NOAA20_NRT';
   let currentDay = 1;
-  let currentMinFrp = 10;
+  let currentMinFrp = 200;
   let layerGroup = L.layerGroup().addTo(map);
 
   function setStatus(state, text) {
