@@ -1,0 +1,40 @@
+name: Fire anomaly alert
+
+# Every few hours, run NASA FIRMS change-detection over the Middle East and
+# Russia-Ukraine theatres and open a GitHub issue (assigned to the maintainer,
+# who is then emailed by GitHub) when a facility burns well above its baseline.
+# Candidates, not confirmations — see scripts/fire-alert.mjs.
+#
+# One-time setup:
+#   Add repo secret FIRMS_MAP_KEY (your free FIRMS key — the same one used by
+#   the Cloudflare Worker) under Settings > Secrets and variables > Actions.
+
+on:
+  schedule:
+    - cron: '17 */3 * * *'   # every 3 hours (at :17)
+  workflow_dispatch: {}       # also runnable on demand from the Actions tab
+
+permissions:
+  issues: write               # open/label/assign the alert issue
+
+concurrency:
+  group: fire-alert
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check for fire anomalies
+        env:
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node scripts/fire-alert.mjs

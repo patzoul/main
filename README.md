@@ -37,6 +37,17 @@ server-side and adds CORS. The Worker code and one-time setup steps are in
 (stored only in `localStorage`). Everything is free — the FIRMS key and the
 Workers free tier both cost nothing.
 
+The two "fire watch" maps (Middle East, Russia–Ukraine) add **baseline
+change-detection**: for each refinery/terminal they compare the current fire
+intensity against the site's own recent baseline, flagging only genuine spikes
+(so routine gas flaring stays quiet). A scheduled GitHub Actions job
+(`.github/workflows/fire-alert.yml` → [`scripts/fire-alert.mjs`](scripts/fire-alert.mjs))
+runs the same check server-side every few hours and **opens a GitHub issue
+(assigned to the maintainer, who is then emailed by GitHub)** when a facility
+burns well above baseline. One-time setup: add a `FIRMS_MAP_KEY` repo secret
+(your free FIRMS key). Candidates, not confirmations — routine flaring/upsets
+can look similar; verify with reporting.
+
 The submarine cable map plots all cable routes and landing points from
 `cable-geo.json` / `landing-point-geo.json` (© TeleGeography, CC BY-NC-SA 3.0),
 with markers for documented cable-damage incidents loaded from
