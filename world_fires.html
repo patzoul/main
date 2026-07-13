@@ -227,10 +227,10 @@
 
   function parseCsv(text) {
     const lines = text.trim().split(/\r?\n/);
-    if (lines.length < 2) return [];
+    if (!lines[0]) return null;
     const header = lines[0].split(',').map(h => h.trim());
     const idx = {}; header.forEach((h, i) => idx[h] = i);
-    if (!('latitude' in idx) || !('longitude' in idx)) return null; // not a FIRMS CSV
+    if (!('latitude' in idx) || !('longitude' in idx)) return null; // error text, not a FIRMS CSV
     const bi = ('bright_ti4' in idx) ? idx.bright_ti4 : idx.brightness;
     const rows = [];
     for (let k = 1; k < lines.length; k++) {

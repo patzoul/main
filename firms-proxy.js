@@ -55,7 +55,7 @@ export default {
     const day = p.get('day') || '1';
 
     if (!SOURCES.includes(source)) return new Response('Invalid source', { status: 400, headers: cors });
-    if (!/^[1-3]$/.test(day)) return new Response('Invalid day range (1-3)', { status: 400, headers: cors });
+    if (!/^([1-9]|10)$/.test(day)) return new Response('Invalid day range (1-10)', { status: 400, headers: cors });
     const bboxOk = /^-?\d+(\.\d+)?(,-?\d+(\.\d+)?){3}$/.test(area);
     if (area !== 'world' && !bboxOk) return new Response('Invalid area', { status: 400, headers: cors });
 
