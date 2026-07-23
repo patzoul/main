@@ -98,9 +98,9 @@
   <h2>Ebola in Africa</h2>
   <div class="subtitle">Outbreak progress · 1976 – 2026</div>
 
-  <div class="ctrl-label">Showing since &nbsp;<span class="val" id="yearVal">2026 · now</span></div>
-  <input type="range" id="yearSlider" min="1976" max="2026" step="1" value="2026" style="direction: rtl;">
-  <div class="scale-hint"><span>now</span><span>← back in time&nbsp;</span><span>1976</span></div>
+  <div class="ctrl-label">Showing since &nbsp;<span class="val" id="yearVal">now</span></div>
+  <input type="range" id="yearSlider" min="0" max="1" step="1" value="0">
+  <div class="scale-hint"><span>now</span><span>months → years →</span><span>1976</span></div>
   <div class="play-row">
     <button class="play-btn" id="playBtn">▶ Play back in time</button>
     <button class="play-btn sm" id="allBtn" title="Show full history">All</button>
@@ -184,7 +184,7 @@
     { year:2022, label:'2022 (Apr–Jul)', country:'DR Congo',        place:'Mbandaka, Équateur',          species:'zaire',    cases:5,     deaths:5,    lat:0.05,   lon:18.26 },
     { year:2022, label:'2022 (Aug–Sep)', country:'DR Congo',        place:'Beni, Nord-Kivu',             species:'zaire',    cases:1,     deaths:1,    lat:0.49,   lon:29.47 },
     { year:2022, label:'2022–2023',   country:'Uganda',             place:'Mubende & Kampala',           species:'sudan',    cases:164,   deaths:77,   lat:0.57,   lon:31.39 },
-    { year:2025, label:'2025 (Sep–Dec)', country:'DR Congo',        place:'Bulape, Kasaï',               species:'zaire',    cases:64,    deaths:45,   lat:-4.78,  lon:21.40 },
+    { year:2025, month:9, label:'2025 (Sep–Dec)', country:'DR Congo', place:'Bulape, Kasaï',              species:'zaire',    cases:64,    deaths:45,   lat:-4.78,  lon:21.40 },
     // 2026 Central Africa epidemic — ongoing (Bundibugyo virus), broken by province.
     { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Ituri Province',              species:'bundibugyo', cases:2202, deaths:838, lat:1.56,  lon:30.25, active:true },
     { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Nord-Kivu Province',          species:'bundibugyo', cases:247,  deaths:146, lat:0.14,  lon:29.29, active:true },
@@ -210,9 +210,30 @@
 
   const layerGroup = L.layerGroup().addTo(map);
   const hiddenSpecies = new Set();
-  let sinceYear = 2026;   // earliest year shown; the map opens on "now" and reaches back
   let currentMinCases = 0;
   let playTimer = null;
+
+  // Mixed-resolution timeline. The slider steps by MONTH for the most recent year,
+  // then by YEAR further back to the first outbreak (1976). STOPS[0] = now (most
+  // recent) on the left; higher index reaches further back in time.
+  const NOW_Y = 2026, NOW_M = 7;   // current month (July 2026)
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const monthIdx = (y, m) => y * 12 + (m - 1);
+  const STOPS = [];
+  for (let k = 0; k <= 12; k++) {                     // last 12 months, monthly
+    let y = NOW_Y, m = NOW_M - k;
+    while (m <= 0) { m += 12; y -= 1; }
+    STOPS.push({ idx: monthIdx(y, m), label: k === 0 ? 'now' : `${MONTHS[m - 1]} ${y}` });
+  }
+  for (let y = NOW_Y - 2; y >= 1976; y--) {           // older history, yearly
+    STOPS.push({ idx: monthIdx(y, 1), label: y === 1976 ? '1976 · all' : String(y) });
+  }
+  const LAST_STOP = STOPS.length - 1;
+  let sincePos = 0;                                   // slider position; 0 = now
+  const sinceIdx = () => STOPS[sincePos].idx;
+
+  // Precompute each outbreak's start index (year + optional start month).
+  OUTBREAKS.forEach(o => { o._idx = monthIdx(o.year, o.month || 1); });
 
   const fmt = n => n.toLocaleString('en-US');
   // Bubble radius from case count (log scale), clamped for readability.
@@ -234,10 +255,11 @@
   }
 
   function visibleOutbreaks() {
-    // Show outbreaks from the selected year up to the present (most-recent first;
-    // dragging the slider back lowers sinceYear and reveals older outbreaks).
+    // Show the ongoing epidemic plus every outbreak that started at/after the
+    // selected point; reaching further back reveals older outbreaks.
+    const since = sinceIdx();
     return OUTBREAKS.filter(o =>
-      o.year >= sinceYear &&
+      (o.active || o._idx >= since) &&
       o.cases >= currentMinCases &&
       !hiddenSpecies.has(o.species));
   }
@@ -313,11 +335,10 @@
     });
   }
 
-  function setSince(y) {
-    sinceYear = y;
-    const label = y >= 2026 ? '2026 · now' : (y <= 1976 ? '1976 · all' : String(y));
-    document.getElementById('yearVal').textContent = label;
-    document.getElementById('yearSlider').value = y;
+  function setPos(p) {
+    sincePos = Math.max(0, Math.min(LAST_STOP, p));
+    document.getElementById('yearVal').textContent = STOPS[sincePos].label;
+    document.getElementById('yearSlider').value = sincePos;
     render();
   }
 
@@ -326,9 +347,11 @@
     document.getElementById('playBtn').textContent = '▶ Play back in time';
   }
 
-  document.getElementById('yearSlider').addEventListener('input', e => {
+  const yearSlider = document.getElementById('yearSlider');
+  yearSlider.min = 0; yearSlider.max = LAST_STOP; yearSlider.step = 1; yearSlider.value = 0;
+  yearSlider.addEventListener('input', e => {
     stopPlay();
-    setSince(parseInt(e.target.value));
+    setPos(parseInt(e.target.value));
   });
 
   document.getElementById('minCasesSlider').addEventListener('input', e => {
@@ -340,22 +363,22 @@
 
   document.getElementById('allBtn').addEventListener('click', () => {
     stopPlay();
-    setSince(1976);
+    setPos(LAST_STOP);
   });
 
-  // Play starts at the present and steps back year by year, revealing older outbreaks.
+  // Play starts at the present and steps back through time (months, then years).
   document.getElementById('playBtn').addEventListener('click', () => {
     if (playTimer) { stopPlay(); return; }
-    if (sinceYear <= 1976) setSince(2026);
+    if (sincePos >= LAST_STOP) setPos(0);
     document.getElementById('playBtn').textContent = '⏸ Pause';
     playTimer = setInterval(() => {
-      if (sinceYear <= 1976) { stopPlay(); return; }
-      setSince(sinceYear - 1);
-    }, 520);
+      if (sincePos >= LAST_STOP) { stopPlay(); return; }
+      setPos(sincePos + 1);
+    }, 380);
   });
 
   buildToggles();
-  setSince(2026);
+  setPos(0);
 </script>
 </body>
 </html>
