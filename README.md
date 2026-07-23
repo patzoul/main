@@ -10,6 +10,7 @@ full list.
 - **[world_fires.html](world_fires.html)** — global active-fire / thermal-anomaly detections from [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS / MODIS), colored by fire radiative power, with satellite/day-range/intensity filters. Requires a free FIRMS proxy (see below)
 - **[mideast_fires.html](mideast_fires.html)** — Middle East FIRMS fires overlaid on a curated list of major refineries / oil terminals, with **baseline change-detection**: a facility is flagged only when its current fire intensity spikes above its own recent baseline (so routine flaring stays quiet). Candidates, not confirmations. Uses the same FIRMS proxy
 - **[russia_ukraine_fires.html](russia_ukraine_fires.html)** — the same FIRMS + change-detection monitor over the Russia–Ukraine theatre, with a curated list of Russian & Ukrainian refineries / oil terminals. Uses the same FIRMS proxy
+- **[ebola_africa.html](ebola_africa.html)** — the progress of Ebola virus disease (EVD) outbreaks across Africa from 1976 to the present, on a **playable timeline**: drag/animate the year slider to watch outbreaks appear, sized by reported cases (log scale) and colored by virus species (Zaire / Sudan / Bundibugyo / Taï Forest). The running **active 2026 Central Africa epidemic** (Bundibugyo virus, DR Congo & Uganda) is broken out by province and highlighted. Curated from [CDC](https://www.cdc.gov/ebola/outbreaks/) & [WHO](https://www.who.int/) reporting; self-contained, no key required
 - **[natural_events.html](natural_events.html)** — active natural events worldwide from [NASA EONET](https://eonet.gsfc.nasa.gov/) (volcanoes, severe storms, floods, icebergs, etc.), colored by category with clickable type toggles and storm/iceberg tracks. No key required
 - **[weather_radar.html](weather_radar.html)** — animated global precipitation radar from [RainViewer](https://www.rainviewer.com/) (past ~2 h, playable loop with timeline scrub and opacity control). No key required
 - **[malacca_ships.html](malacca_ships.html)** — live ship traffic in the Strait of Malacca via [aisstream.io](https://aisstream.io) AIS data
@@ -62,6 +63,21 @@ it never commits to `main`. One-time setup: run `claude setup-token` (needs a
 Claude Pro/Max subscription) and add the result as a `CLAUDE_CODE_OAUTH_TOKEN`
 repo secret, and enable Settings → Actions → General → "Allow GitHub Actions to
 create and approve pull requests".
+
+The Ebola map is a self-contained Leaflet timeline. Because there is no free
+live feed for outbreak counts, the outbreak list is **curated and embedded in
+the file** — every significant African EVD outbreak from the first (1976,
+Yambuku, then Zaire) through the ongoing 2026 Central Africa epidemic — compiled
+from the CDC "History of Ebola Outbreaks" chronology and WHO Disease Outbreak
+News. Each entry carries the year, country, location, virus species, and
+cumulative reported cases/deaths. The year slider (with a **Play** button) shows
+outbreaks up to the selected year, so you can watch the disease's spread and
+recurrence over five decades; the stats panel totals the cases, deaths, and
+case-fatality rate for what's currently shown. Recent and ongoing figures are
+provisional, and imported/index cases outside Africa (e.g. the 2014 US/Europe
+cases) are not plotted. To refresh the numbers as the situation evolves, edit
+the `OUTBREAKS` array near the top of
+[`ebola_africa.html`](ebola_africa.html).
 
 The electricity map (Plotly choropleth) colours each country by its residential
 electricity price (USD/kWh); countries without price data are greyed. The price

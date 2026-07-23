@@ -43,6 +43,8 @@
     a.card.mideast:hover { border-color: rgba(240,130,90,0.5); background: rgba(240,130,90,0.08); }
     a.card.ruua h2 { color: #e0685e; }
     a.card.ruua:hover { border-color: rgba(224,104,94,0.5); background: rgba(224,104,94,0.08); }
+    a.card.ebola h2 { color: #e07a5f; }
+    a.card.ebola:hover { border-color: rgba(224,122,95,0.5); background: rgba(224,122,95,0.08); }
     a.card.hazards h2 { color: #7ec8f7; }
     a.card.hazards:hover { border-color: rgba(126,200,247,0.5); background: rgba(126,200,247,0.08); }
     a.card.weather h2 { color: #4fc3d9; }
@@ -66,7 +68,7 @@
 <body>
   <div class="wrap">
     <h1>Live Maps</h1>
-    <div class="subtitle">Earthquakes, wildfires, natural hazards, weather radar, ship traffic, submarine cables & electricity prices — live data</div>
+    <div class="subtitle">Earthquakes, wildfires, disease outbreaks, natural hazards, weather radar, ship traffic, submarine cables & electricity prices — live data</div>
     <div class="cards">
       <a class="card" href="world_earthquakes.html">
         <h2>World Map</h2>
@@ -87,6 +89,10 @@
       <a class="card ruua" href="russia_ukraine_fires.html">
         <h2>Russia–Ukraine Fire Watch</h2>
         <p>Same FIRMS + baseline change-detection over the Russia–Ukraine theatre, flagging refineries/terminals whose fire activity spikes above their norm.</p>
+      </a>
+      <a class="card ebola" href="ebola_africa.html">
+        <h2>Ebola in Africa</h2>
+        <p>Progress of Ebola virus disease outbreaks across Africa (1976–2026) — a playable timeline sized by cases and colored by virus species, with the active 2026 epidemic highlighted. Data: CDC / WHO.</p>
       </a>
       <a class="card hazards" href="natural_events.html">
         <h2>Natural Hazards</h2>
@@ -116,6 +122,8 @@
     <footer>
       Data: <a href="https://earthquake.usgs.gov/" target="_blank">USGS</a>
       · <a href="https://aisstream.io" target="_blank">aisstream.io</a>
+      · <a href="https://www.cdc.gov/ebola/outbreaks/" target="_blank">CDC</a>
+      · <a href="https://www.who.int/" target="_blank">WHO</a>
       · <a href="https://ourworldindata.org/electricity-mix" target="_blank">Our World in Data</a>
       · <a href="https://www.globalpetrolprices.com/electricity_prices/" target="_blank">GlobalPetrolPrices</a>
     </footer>

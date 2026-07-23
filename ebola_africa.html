@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ebola in Africa — outbreak progress 1976–2026</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #0d0d1a; }
+    #map { width: 100vw; height: 100vh; background: #0a0a14; }
+
+    #panel {
+      position: absolute; top: 14px; left: 14px; z-index: 1000;
+      background: rgba(10, 10, 25, 0.90);
+      border: 1px solid rgba(224, 122, 95, 0.30);
+      border-radius: 10px; padding: 14px 18px; width: 258px;
+      max-height: calc(100vh - 28px); overflow-y: auto;
+      backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    }
+    #panel h2 { font-size: 13px; font-weight: 700; letter-spacing: 1px; color: #e07a5f; margin-bottom: 2px; text-transform: uppercase; }
+    #panel .subtitle { font-size: 11px; color: #887; margin-bottom: 12px; }
+
+    .ctrl-label { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: #aab; margin-bottom: 5px; }
+    .ctrl-label .val { color: #e07a5f; font-weight: 700; font-size: 15px; }
+    input[type="range"] { width: 100%; accent-color: #e07a5f; cursor: pointer; height: 4px; }
+
+    .play-row { display: flex; gap: 8px; margin-top: 9px; }
+    .play-btn {
+      flex: 1; background: rgba(224,122,95,0.14); color: #e07a5f;
+      border: 1px solid rgba(224,122,95,0.4); border-radius: 6px;
+      padding: 6px 8px; font-size: 12px; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: background 0.12s;
+    }
+    .play-btn:hover { background: rgba(224,122,95,0.26); }
+    .play-btn.sm { flex: 0 0 auto; padding: 6px 10px; color: #99a; border-color: rgba(150,150,180,0.35); background: rgba(255,255,255,0.03); }
+    .play-btn.sm:hover { background: rgba(255,255,255,0.09); }
+
+    .sect-head {
+      font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: #e07a5f;
+      margin: 14px 0 8px; padding-top: 11px; border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .sect-head span { color: #556; text-transform: none; letter-spacing: 0; }
+
+    .cat-row {
+      display: flex; align-items: center; gap: 8px; padding: 3px 5px; margin: 0 -5px 2px;
+      border-radius: 4px; cursor: pointer; user-select: none; transition: background 0.12s;
+    }
+    .cat-row:hover { background: rgba(255,255,255,0.07); }
+    .cat-row.off { opacity: 0.35; }
+    .cat-row.off .cat-label { text-decoration: line-through; }
+    .cat-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.25); }
+    .cat-label { font-size: 12px; color: #cdd; flex: 1; }
+    .cat-count { font-size: 11px; color: #778; }
+
+    #stats { margin-top: 13px; padding-top: 11px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 12px; color: #99a; line-height: 1.7; }
+    #stats .row { display: flex; justify-content: space-between; }
+    #stats b { color: #e6e6ea; font-weight: 700; }
+    #stats .cases b { color: #f0b15a; }
+    #stats .deaths b { color: #e07a5f; }
+
+    #active-box {
+      margin-top: 12px; padding: 9px 11px; border-radius: 7px;
+      background: rgba(224,90,90,0.10); border: 1px solid rgba(224,90,90,0.4);
+      font-size: 11px; color: #ecc; line-height: 1.5; display: none;
+    }
+    #active-box.show { display: block; }
+    #active-box .hd { display: flex; align-items: center; gap: 7px; font-weight: 700; color: #f2857a; font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 4px; }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff5a4d; box-shadow: 0 0 0 0 rgba(255,90,77,0.7); animation: pulse 1.6s infinite; }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,90,77,0.6); } 70% { box-shadow: 0 0 0 8px rgba(255,90,77,0); } 100% { box-shadow: 0 0 0 0 rgba(255,90,77,0); } }
+
+    .legend-note { font-size: 10px; color: #667; margin-top: 9px; line-height: 1.5; }
+
+    .source-note { position: absolute; bottom: 8px; left: 14px; z-index: 1000; font-size: 10px; color: #556; max-width: 62vw; }
+    .source-note a { color: #a8765a; }
+
+    .leaflet-tooltip {
+      background: rgba(255,255,255,0.97) !important; color: #222 !important;
+      border: none !important; border-radius: 8px !important;
+      box-shadow: 0 3px 14px rgba(0,0,0,0.3) !important; padding: 0 !important;
+    }
+    .leaflet-tooltip::before { display: none !important; }
+    .leaflet-popup-content-wrapper { background: rgba(255,255,255,0.97) !important; color: #222 !important; border-radius: 8px !important; }
+    .leaflet-popup-content { margin: 0 !important; }
+    .tt { padding: 9px 12px; min-width: 190px; max-width: 280px; }
+    .tt-place { font-size: 12.5px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; line-height: 1.3; }
+    .tt-grid { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; }
+    .tt-key { font-size: 11px; color: #888; }
+    .tt-val { font-size: 11px; font-weight: 600; color: #333; }
+    .tt-badge { display: inline-block; font-size: 9px; font-weight: 700; letter-spacing: 0.5px; color: #fff; background: #e0453d; border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+
+<div id="panel">
+  <h2>Ebola in Africa</h2>
+  <div class="subtitle">Outbreak progress · 1976 – 2026</div>
+
+  <div class="ctrl-label">Timeline &nbsp;<span class="val" id="yearVal">2026</span></div>
+  <input type="range" id="yearSlider" min="1976" max="2026" step="1" value="2026">
+  <div class="play-row">
+    <button class="play-btn" id="playBtn">▶ Play history</button>
+    <button class="play-btn sm" id="allBtn" title="Show all outbreaks">All</button>
+  </div>
+
+  <div class="sect-head">Virus species <span>· click to toggle</span></div>
+  <div id="speciesToggles"></div>
+
+  <div id="stats">
+    <div class="row"><span>Outbreaks</span><b id="st-out">—</b></div>
+    <div class="row cases"><span>Reported cases</span><b id="st-cases">—</b></div>
+    <div class="row deaths"><span>Reported deaths</span><b id="st-deaths">—</b></div>
+    <div class="row"><span>Case fatality</span><b id="st-cfr">—</b></div>
+  </div>
+
+  <div id="active-box">
+    <div class="hd"><span class="live-dot"></span> Active epidemic</div>
+    <div id="active-text"></div>
+  </div>
+
+  <div class="legend-note">Bubble size ∝ reported cases (log scale). Figures are cumulative totals as reported by CDC / WHO; recent and ongoing counts are provisional.</div>
+</div>
+
+<div class="source-note">
+  Data: <a href="https://www.cdc.gov/ebola/outbreaks/" target="_blank">CDC — History of Ebola Outbreaks</a> ·
+  <a href="https://www.who.int/emergencies/situations" target="_blank">WHO Disease Outbreak News</a>
+</div>
+
+<div id="map"></div>
+
+<script>
+  // ---------------------------------------------------------------------------
+  // Curated dataset of Ebola virus disease (EVD) outbreaks in Africa, 1976–2026.
+  // Sources: CDC "History of Ebola Outbreaks" chronology + WHO Disease Outbreak
+  // News. `year` is the year the outbreak began (used for the timeline);
+  // `label` is the human date range. Coordinates point at the main
+  // affected town/region. cases/deaths are cumulative reported totals.
+  // Ongoing/recent counts are provisional. species keys map to LEGEND below.
+  // ---------------------------------------------------------------------------
+  const OUTBREAKS = [
+    { year:1976, label:'1976',        country:'DR Congo (Zaire)',   place:'Yambuku, Mongala',            species:'zaire',    cases:318,   deaths:280,  lat:2.83,   lon:22.28 },
+    { year:1976, label:'1976',        country:'South Sudan (Sudan)',place:'Nzara & Maridi',              species:'sudan',    cases:284,   deaths:151,  lat:4.64,   lon:28.42 },
+    { year:1977, label:'1977',        country:'DR Congo (Zaire)',   place:'Tandala',                     species:'zaire',    cases:1,     deaths:1,    lat:2.48,   lon:19.62 },
+    { year:1979, label:'1979',        country:'South Sudan (Sudan)',place:'Nzara & Maridi',              species:'sudan',    cases:34,    deaths:22,   lat:4.64,   lon:28.42 },
+    { year:1994, label:'1994',        country:'Gabon',              place:'Mékouka, Minkébé (NE)',       species:'zaire',    cases:52,    deaths:31,   lat:1.55,   lon:12.78 },
+    { year:1994, label:'1994',        country:"Côte d'Ivoire",      place:'Taï Forest',                  species:'tai',      cases:1,     deaths:0,    lat:5.85,   lon:-7.35 },
+    { year:1995, label:'1995',        country:'DR Congo',           place:'Kikwit, Bandundu',            species:'zaire',    cases:315,   deaths:250,  lat:-5.04,  lon:18.82 },
+    { year:1996, label:'1996 (Jan–Apr)', country:'Gabon',           place:'Mayibout',                    species:'zaire',    cases:37,    deaths:21,   lat:1.35,   lon:13.15 },
+    { year:1996, label:'1996–1997 (Jul–Jan)', country:'Gabon',      place:'Booué',                       species:'zaire',    cases:60,    deaths:45,   lat:-0.09,  lon:11.93 },
+    { year:1996, label:'1996 (imported)', country:'South Africa',   place:'Johannesburg (from Gabon)',   species:'zaire',    cases:2,     deaths:1,    lat:-26.20, lon:28.05 },
+    { year:2000, label:'2000–2001',   country:'Uganda',             place:'Gulu, Masindi, Mbarara',      species:'sudan',    cases:425,   deaths:224,  lat:2.77,   lon:32.30 },
+    { year:2001, label:'2001–2002',   country:'Gabon',              place:'Ogooué-Ivindo (border)',      species:'zaire',    cases:65,    deaths:53,   lat:1.10,   lon:14.10 },
+    { year:2001, label:'2001–2002',   country:'Rep. of the Congo',  place:'Cuvette-Ouest (border)',      species:'zaire',    cases:57,    deaths:43,   lat:0.05,   lon:14.55 },
+    { year:2002, label:'2002–2003 (Dec–Apr)', country:'Rep. of the Congo', place:'Mbomo & Kéllé',        species:'zaire',    cases:143,   deaths:128,  lat:-0.40,  lon:14.70 },
+    { year:2003, label:'2003 (Nov–Dec)', country:'Rep. of the Congo', place:'Mbomo',                     species:'zaire',    cases:35,    deaths:29,   lat:-0.40,  lon:14.70 },
+    { year:2004, label:'2004',        country:'South Sudan (Sudan)',place:'Yambio',                      species:'sudan',    cases:17,    deaths:7,    lat:4.57,   lon:28.40 },
+    { year:2007, label:'2007',        country:'DR Congo',           place:'Luebo, Kasaï-Occidental',     species:'zaire',    cases:264,   deaths:187,  lat:-5.35,  lon:21.42 },
+    { year:2007, label:'2007–2008',   country:'Uganda',             place:'Bundibugyo',                  species:'bundibugyo', cases:149, deaths:37,   lat:0.71,   lon:30.06 },
+    { year:2008, label:'2008–2009',   country:'DR Congo',           place:'Mweka & Luebo, Kasaï',        species:'zaire',    cases:32,    deaths:15,   lat:-5.00,  lon:21.57 },
+    { year:2011, label:'2011',        country:'Uganda',             place:'Luwero',                      species:'sudan',    cases:1,     deaths:1,    lat:0.85,   lon:32.47 },
+    { year:2012, label:'2012 (Jun–Oct)', country:'Uganda',          place:'Kibaale',                     species:'sudan',    cases:11,    deaths:4,    lat:0.80,   lon:31.07 },
+    { year:2012, label:'2012 (Jun–Nov)', country:'DR Congo',        place:'Isiro, Haut-Uélé',            species:'bundibugyo', cases:36,  deaths:13,   lat:2.77,   lon:27.62 },
+    { year:2012, label:'2012–2013 (Nov–Jan)', country:'Uganda',     place:'Luwero',                      species:'sudan',    cases:6,     deaths:3,    lat:0.85,   lon:32.47 },
+    { year:2014, label:'2014 (Aug–Nov)', country:'DR Congo',        place:'Boende, Équateur',            species:'zaire',    cases:66,    deaths:49,   lat:-0.22,  lon:20.87 },
+    // 2014–2016 West Africa epidemic — broken out by country (largest in history).
+    { year:2014, label:'2014–2016',   country:'Sierra Leone',       place:'West Africa epidemic',        species:'zaire',    cases:14124, deaths:3956, lat:8.48,   lon:-13.23 },
+    { year:2014, label:'2014–2016',   country:'Liberia',            place:'West Africa epidemic',        species:'zaire',    cases:10675, deaths:4809, lat:6.30,   lon:-10.80 },
+    { year:2014, label:'2014–2016',   country:'Guinea',             place:'Guéckédou (origin) & nat’l',  species:'zaire',    cases:3811,  deaths:2543, lat:8.57,   lon:-10.13 },
+    { year:2014, label:'2014',        country:'Nigeria',            place:'Lagos & Port Harcourt (imported)', species:'zaire', cases:20,  deaths:8,    lat:6.52,   lon:3.38 },
+    { year:2014, label:'2014',        country:'Mali',               place:'Bamako (imported)',           species:'zaire',    cases:8,     deaths:6,    lat:12.64,  lon:-8.00 },
+    { year:2014, label:'2014',        country:'Senegal',            place:'Dakar (imported)',            species:'zaire',    cases:1,     deaths:0,    lat:14.69,  lon:-17.45 },
+    { year:2017, label:'2017',        country:'DR Congo',           place:'Likati, Bas-Uélé',            species:'zaire',    cases:8,     deaths:4,    lat:3.16,   lon:23.90 },
+    { year:2018, label:'2018 (May–Jul)', country:'DR Congo',        place:'Bikoro & Mbandaka, Équateur', species:'zaire',    cases:54,    deaths:33,   lat:-0.75,  lon:18.12 },
+    { year:2018, label:'2018–2020',   country:'DR Congo',           place:'Kivu epidemic (N./S.-Kivu, Ituri)', species:'zaire', cases:3481, deaths:2299, lat:0.49,  lon:29.47 },
+    { year:2020, label:'2020 (Jun–Nov)', country:'DR Congo',        place:'Mbandaka, Équateur',          species:'zaire',    cases:130,   deaths:55,   lat:0.05,   lon:18.26 },
+    { year:2021, label:'2021 (Feb–May)', country:'DR Congo',        place:'Butembo, Nord-Kivu',          species:'zaire',    cases:12,    deaths:6,    lat:0.14,   lon:29.29 },
+    { year:2021, label:'2021 (Feb–Jun)', country:'Guinea',          place:'Nzérékoré (Gouécké)',         species:'zaire',    cases:23,    deaths:12,   lat:7.75,   lon:-8.82 },
+    { year:2022, label:'2022 (Apr–Jul)', country:'DR Congo',        place:'Mbandaka, Équateur',          species:'zaire',    cases:5,     deaths:5,    lat:0.05,   lon:18.26 },
+    { year:2022, label:'2022 (Aug–Sep)', country:'DR Congo',        place:'Beni, Nord-Kivu',             species:'zaire',    cases:1,     deaths:1,    lat:0.49,   lon:29.47 },
+    { year:2022, label:'2022–2023',   country:'Uganda',             place:'Mubende & Kampala',           species:'sudan',    cases:164,   deaths:77,   lat:0.57,   lon:31.39 },
+    { year:2025, label:'2025 (Sep–Dec)', country:'DR Congo',        place:'Bulape, Kasaï',               species:'zaire',    cases:64,    deaths:45,   lat:-4.78,  lon:21.40 },
+    // 2026 Central Africa epidemic — ongoing (Bundibugyo virus), broken by province.
+    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Ituri Province',              species:'bundibugyo', cases:2202, deaths:838, lat:1.56,  lon:30.25, active:true },
+    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Nord-Kivu Province',          species:'bundibugyo', cases:247,  deaths:146, lat:0.14,  lon:29.29, active:true },
+    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Haut-Uélé Province',          species:'bundibugyo', cases:16,   deaths:10,  lat:2.77,  lon:27.62, active:true },
+    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Tshopo Province',             species:'bundibugyo', cases:5,    deaths:4,   lat:0.52,  lon:25.20, active:true },
+    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Sud-Kivu Province',           species:'bundibugyo', cases:3,    deaths:1,   lat:-2.51, lon:28.84, active:true },
+    { year:2026, label:'2026 (ongoing)', country:'Uganda',          place:'Kampala',                     species:'bundibugyo', cases:20,   deaths:2,   lat:0.31,  lon:32.58, active:true }
+  ];
+
+  const LEGEND = {
+    zaire:      { label:'Zaire ebolavirus',    color:'#e0453d', note:'deadliest; most outbreaks' },
+    sudan:      { label:'Sudan virus',         color:'#e88a2e' },
+    bundibugyo: { label:'Bundibugyo virus',    color:'#f0c419' },
+    tai:        { label:'Taï Forest virus',    color:'#16a085' }
+  };
+  function specInfo(k) { return LEGEND[k] || { label:k, color:'#8a949e' }; }
+
+  const map = L.map('map', { zoomControl: true, worldCopyJump: false }).setView([2.5, 19], 4);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CartoDB</a> | Data: <a href="https://www.cdc.gov/ebola/outbreaks/" style="color:#e07a5f">CDC</a> / <a href="https://www.who.int/" style="color:#e07a5f">WHO</a>',
+    subdomains: 'abcd', maxZoom: 12
+  }).addTo(map);
+
+  const layerGroup = L.layerGroup().addTo(map);
+  const hiddenSpecies = new Set();
+  let currentYear = 2026;
+  let playTimer = null;
+
+  const fmt = n => n.toLocaleString('en-US');
+  // Bubble radius from case count (log scale), clamped for readability.
+  function radiusFor(cases) { return Math.max(4.5, Math.min(30, 4 + 6.2 * Math.log10(cases + 1))); }
+
+  function tooltipHtml(o) {
+    const info = specInfo(o.species);
+    const cfr = o.cases ? ((o.deaths / o.cases) * 100).toFixed(o.deaths ? 1 : 0) : '—';
+    return `<div class="tt">
+      <div class="tt-place">${o.country} · ${o.label}${o.active ? '<span class="tt-badge">Active</span>' : ''}</div>
+      <div class="tt-grid">
+        <span class="tt-key">Location</span><span class="tt-val">${o.place}</span>
+        <span class="tt-key">Virus</span><span class="tt-val" style="color:${info.color}">${info.label}</span>
+        <span class="tt-key">Cases</span><span class="tt-val">${fmt(o.cases)}</span>
+        <span class="tt-key">Deaths</span><span class="tt-val">${fmt(o.deaths)}</span>
+        <span class="tt-key">Fatality rate</span><span class="tt-val">${cfr}%</span>
+      </div>
+    </div>`;
+  }
+
+  function visibleOutbreaks() {
+    return OUTBREAKS.filter(o => o.year <= currentYear && !hiddenSpecies.has(o.species));
+  }
+
+  function render() {
+    layerGroup.clearLayers();
+    let cases = 0, deaths = 0, count = 0;
+    const active = [];
+    // Draw larger bubbles first so small ones stay clickable on top.
+    visibleOutbreaks()
+      .slice()
+      .sort((a, b) => b.cases - a.cases)
+      .forEach(o => {
+        const info = specInfo(o.species);
+        const r = radiusFor(o.cases);
+        if (o.active && o.year <= currentYear) {
+          // Pulsing halo behind active-epidemic points.
+          layerGroup.addLayer(L.circleMarker([o.lat, o.lon], {
+            radius: r + 6, color: '#ff5a4d', weight: 1, opacity: 0.5,
+            fillColor: '#ff5a4d', fillOpacity: 0.10, interactive: false,
+            className: 'halo'
+          }));
+        }
+        const m = L.circleMarker([o.lat, o.lon], {
+          radius: r, fillColor: info.color, color: 'rgba(0,0,0,0.55)',
+          weight: 0.8, fillOpacity: 0.78, opacity: 1
+        });
+        const html = tooltipHtml(o);
+        m.bindTooltip(html, { sticky: true, opacity: 1 });
+        m.bindPopup(html);
+        layerGroup.addLayer(m);
+        cases += o.cases; deaths += o.deaths; count++;
+        if (o.active) active.push(o);
+      });
+
+    document.getElementById('st-out').textContent = fmt(count);
+    document.getElementById('st-cases').textContent = fmt(cases);
+    document.getElementById('st-deaths').textContent = fmt(deaths);
+    document.getElementById('st-cfr').textContent = cases ? ((deaths / cases) * 100).toFixed(1) + '%' : '—';
+
+    const box = document.getElementById('active-box');
+    if (active.length) {
+      const ac = active.reduce((s, o) => s + o.cases, 0);
+      const ad = active.reduce((s, o) => s + o.deaths, 0);
+      document.getElementById('active-text').innerHTML =
+        `<b style="color:#f2857a">2026 Central Africa epidemic</b> — Bundibugyo virus, DR Congo &amp; Uganda. ` +
+        `${fmt(ac)} cases, ${fmt(ad)} deaths across ${active.length} areas. Declared a WHO Public Health Emergency of International Concern.`;
+      box.classList.add('show');
+    } else {
+      box.classList.remove('show');
+    }
+  }
+
+  function buildToggles() {
+    const counts = {};
+    OUTBREAKS.forEach(o => { counts[o.species] = (counts[o.species] || 0) + 1; });
+    const box = document.getElementById('speciesToggles');
+    box.innerHTML = '';
+    Object.keys(LEGEND).forEach(sp => {
+      const info = LEGEND[sp];
+      const row = document.createElement('div');
+      row.className = 'cat-row';
+      const extra = info.note ? ` <span style="font-size:10px;color:#667">(${info.note})</span>` : '';
+      row.innerHTML = `<span class="cat-dot" style="background:${info.color}"></span>` +
+                      `<span class="cat-label">${info.label}${extra}</span>` +
+                      `<span class="cat-count">${counts[sp] || 0}</span>`;
+      row.addEventListener('click', () => {
+        if (hiddenSpecies.has(sp)) { hiddenSpecies.delete(sp); row.classList.remove('off'); }
+        else { hiddenSpecies.add(sp); row.classList.add('off'); }
+        render();
+      });
+      box.appendChild(row);
+    });
+  }
+
+  function setYear(y) {
+    currentYear = y;
+    document.getElementById('yearVal').textContent = y >= 2026 ? '2026 (now)' : y;
+    document.getElementById('yearSlider').value = y;
+    render();
+  }
+
+  function stopPlay() {
+    if (playTimer) { clearInterval(playTimer); playTimer = null; }
+    document.getElementById('playBtn').textContent = '▶ Play history';
+  }
+
+  document.getElementById('yearSlider').addEventListener('input', e => {
+    stopPlay();
+    setYear(parseInt(e.target.value));
+  });
+
+  document.getElementById('allBtn').addEventListener('click', () => {
+    stopPlay();
+    setYear(2026);
+  });
+
+  document.getElementById('playBtn').addEventListener('click', () => {
+    if (playTimer) { stopPlay(); return; }
+    if (currentYear >= 2026) setYear(1976);
+    document.getElementById('playBtn').textContent = '⏸ Pause';
+    playTimer = setInterval(() => {
+      if (currentYear >= 2026) { stopPlay(); return; }
+      setYear(currentYear + 1);
+    }, 520);
+  });
+
+  buildToggles();
+  setYear(2026);
+</script>
+</body>
+</html>
