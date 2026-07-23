@@ -25,6 +25,7 @@
     .ctrl-label { display: flex; justify-content: space-between; align-items: baseline; font-size: 11px; color: #aab; margin-bottom: 5px; }
     .ctrl-label .val { color: #e07a5f; font-weight: 700; font-size: 15px; }
     input[type="range"] { width: 100%; accent-color: #e07a5f; cursor: pointer; height: 4px; }
+    .scale-hint { display: flex; justify-content: space-between; font-size: 9px; color: #667; margin-top: 3px; letter-spacing: 0.3px; }
 
     .play-row { display: flex; gap: 8px; margin-top: 9px; }
     .play-btn {
@@ -97,11 +98,12 @@
   <h2>Ebola in Africa</h2>
   <div class="subtitle">Outbreak progress · 1976 – 2026</div>
 
-  <div class="ctrl-label">Timeline &nbsp;<span class="val" id="yearVal">2026</span></div>
-  <input type="range" id="yearSlider" min="1976" max="2026" step="1" value="2026">
+  <div class="ctrl-label">Showing since &nbsp;<span class="val" id="yearVal">2026 · now</span></div>
+  <input type="range" id="yearSlider" min="1976" max="2026" step="1" value="2026" style="direction: rtl;">
+  <div class="scale-hint"><span>now</span><span>← back in time&nbsp;</span><span>1976</span></div>
   <div class="play-row">
-    <button class="play-btn" id="playBtn">▶ Play history</button>
-    <button class="play-btn sm" id="allBtn" title="Show all outbreaks">All</button>
+    <button class="play-btn" id="playBtn">▶ Play back in time</button>
+    <button class="play-btn sm" id="allBtn" title="Show full history">All</button>
   </div>
 
   <div class="ctrl-label" style="margin-top:13px">Min cases &nbsp;<span class="val" id="minCasesVal">all</span></div>
@@ -208,7 +210,7 @@
 
   const layerGroup = L.layerGroup().addTo(map);
   const hiddenSpecies = new Set();
-  let currentYear = 2026;
+  let sinceYear = 2026;   // earliest year shown; the map opens on "now" and reaches back
   let currentMinCases = 0;
   let playTimer = null;
 
@@ -232,8 +234,10 @@
   }
 
   function visibleOutbreaks() {
+    // Show outbreaks from the selected year up to the present (most-recent first;
+    // dragging the slider back lowers sinceYear and reveals older outbreaks).
     return OUTBREAKS.filter(o =>
-      o.year <= currentYear &&
+      o.year >= sinceYear &&
       o.cases >= currentMinCases &&
       !hiddenSpecies.has(o.species));
   }
@@ -249,7 +253,7 @@
       .forEach(o => {
         const info = specInfo(o.species);
         const r = radiusFor(o.cases);
-        if (o.active && o.year <= currentYear) {
+        if (o.active) {
           // Pulsing halo behind active-epidemic points.
           layerGroup.addLayer(L.circleMarker([o.lat, o.lon], {
             radius: r + 6, color: '#ff5a4d', weight: 1, opacity: 0.5,
@@ -309,21 +313,22 @@
     });
   }
 
-  function setYear(y) {
-    currentYear = y;
-    document.getElementById('yearVal').textContent = y >= 2026 ? '2026 (now)' : y;
+  function setSince(y) {
+    sinceYear = y;
+    const label = y >= 2026 ? '2026 · now' : (y <= 1976 ? '1976 · all' : String(y));
+    document.getElementById('yearVal').textContent = label;
     document.getElementById('yearSlider').value = y;
     render();
   }
 
   function stopPlay() {
     if (playTimer) { clearInterval(playTimer); playTimer = null; }
-    document.getElementById('playBtn').textContent = '▶ Play history';
+    document.getElementById('playBtn').textContent = '▶ Play back in time';
   }
 
   document.getElementById('yearSlider').addEventListener('input', e => {
     stopPlay();
-    setYear(parseInt(e.target.value));
+    setSince(parseInt(e.target.value));
   });
 
   document.getElementById('minCasesSlider').addEventListener('input', e => {
@@ -335,21 +340,22 @@
 
   document.getElementById('allBtn').addEventListener('click', () => {
     stopPlay();
-    setYear(2026);
+    setSince(1976);
   });
 
+  // Play starts at the present and steps back year by year, revealing older outbreaks.
   document.getElementById('playBtn').addEventListener('click', () => {
     if (playTimer) { stopPlay(); return; }
-    if (currentYear >= 2026) setYear(1976);
+    if (sinceYear <= 1976) setSince(2026);
     document.getElementById('playBtn').textContent = '⏸ Pause';
     playTimer = setInterval(() => {
-      if (currentYear >= 2026) { stopPlay(); return; }
-      setYear(currentYear + 1);
+      if (sinceYear <= 1976) { stopPlay(); return; }
+      setSince(sinceYear - 1);
     }, 520);
   });
 
   buildToggles();
-  setYear(2026);
+  setSince(2026);
 </script>
 </body>
 </html>
