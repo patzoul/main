@@ -104,6 +104,9 @@
     <button class="play-btn sm" id="allBtn" title="Show all outbreaks">All</button>
   </div>
 
+  <div class="ctrl-label" style="margin-top:13px">Min cases &nbsp;<span class="val" id="minCasesVal">all</span></div>
+  <input type="range" id="minCasesSlider" min="0" max="1000" step="10" value="0">
+
   <div class="sect-head">Virus species <span>· click to toggle</span></div>
   <div id="speciesToggles"></div>
 
@@ -206,6 +209,7 @@
   const layerGroup = L.layerGroup().addTo(map);
   const hiddenSpecies = new Set();
   let currentYear = 2026;
+  let currentMinCases = 0;
   let playTimer = null;
 
   const fmt = n => n.toLocaleString('en-US');
@@ -228,7 +232,10 @@
   }
 
   function visibleOutbreaks() {
-    return OUTBREAKS.filter(o => o.year <= currentYear && !hiddenSpecies.has(o.species));
+    return OUTBREAKS.filter(o =>
+      o.year <= currentYear &&
+      o.cases >= currentMinCases &&
+      !hiddenSpecies.has(o.species));
   }
 
   function render() {
@@ -317,6 +324,13 @@
   document.getElementById('yearSlider').addEventListener('input', e => {
     stopPlay();
     setYear(parseInt(e.target.value));
+  });
+
+  document.getElementById('minCasesSlider').addEventListener('input', e => {
+    currentMinCases = parseInt(e.target.value);
+    document.getElementById('minCasesVal').textContent =
+      currentMinCases === 0 ? 'all' : '≥ ' + fmt(currentMinCases);
+    render();
   });
 
   document.getElementById('allBtn').addEventListener('click', () => {
