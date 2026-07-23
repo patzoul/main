@@ -70,10 +70,16 @@ the file** — every significant African EVD outbreak from the first (1976,
 Yambuku, then Zaire) through the ongoing 2026 Central Africa epidemic — compiled
 from the CDC "History of Ebola Outbreaks" chronology and WHO Disease Outbreak
 News. Each entry carries the year, country, location, virus species, and
-cumulative reported cases/deaths. The year slider (with a **Play** button) shows
-outbreaks up to the selected year, so you can watch the disease's spread and
-recurrence over five decades; the stats panel totals the cases, deaths, and
-case-fatality rate for what's currently shown. Recent and ongoing figures are
+cumulative reported cases/deaths. The map opens on the current epidemic and the
+timeline reaches **back in time** — month by month over the past year, then year
+by year to 1976 (drag it or hit **Play**) — revealing older outbreaks and
+totalling the cases, deaths, and case-fatality rate for what's shown. The
+ongoing **2026 Central Africa epidemic** also carries a monthly case series, so
+scrubbing its months (May → Jun → now) grows its bubbles and stats as the
+outbreak spreads across the provinces. Its epidemic-wide monthly totals are the
+figures reported by WHO (≈128 cases end-May, ≈623 mid-June, ≈2,500 by late
+July); the per-province split of those monthly totals is reconstructed (only the
+latest per-province breakdown is reported). Recent and ongoing figures are
 provisional, and imported/index cases outside Africa (e.g. the 2014 US/Europe
 cases) are not plotted. To refresh the numbers as the situation evolves, edit
 the `OUTBREAKS` array near the top of

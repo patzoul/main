@@ -186,12 +186,18 @@
     { year:2022, label:'2022–2023',   country:'Uganda',             place:'Mubende & Kampala',           species:'sudan',    cases:164,   deaths:77,   lat:0.57,   lon:31.39 },
     { year:2025, month:9, label:'2025 (Sep–Dec)', country:'DR Congo', place:'Bulape, Kasaï',              species:'zaire',    cases:64,    deaths:45,   lat:-4.78,  lon:21.40 },
     // 2026 Central Africa epidemic — ongoing (Bundibugyo virus), broken by province.
-    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Ituri Province',              species:'bundibugyo', cases:2202, deaths:838, lat:1.56,  lon:30.25, active:true },
-    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Nord-Kivu Province',          species:'bundibugyo', cases:247,  deaths:146, lat:0.14,  lon:29.29, active:true },
-    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Haut-Uélé Province',          species:'bundibugyo', cases:16,   deaths:10,  lat:2.77,  lon:27.62, active:true },
-    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Tshopo Province',             species:'bundibugyo', cases:5,    deaths:4,   lat:0.52,  lon:25.20, active:true },
-    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Sud-Kivu Province',           species:'bundibugyo', cases:3,    deaths:1,   lat:-2.51, lon:28.84, active:true },
-    { year:2026, label:'2026 (ongoing)', country:'Uganda',          place:'Kampala',                     species:'bundibugyo', cases:20,   deaths:2,   lat:0.31,  lon:32.58, active:true }
+    // The 2026 epidemic's month-by-month growth. `series` = cumulative {m:month,
+    // c:cases, d:deaths} at end of that month; the row's own cases/deaths are the
+    // latest ("now", ~20 Jul). Epidemic-wide monthly totals are as reported by WHO
+    // (May ≈128/18, mid-Jun ≈623/103, ~20 Jul 2493/1001); the per-province split of
+    // those monthly totals is reconstructed (Ituri-origin first, then spread) since
+    // only the latest per-province breakdown is reported.
+    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Ituri Province',              species:'bundibugyo', cases:2202, deaths:838, lat:1.56,  lon:30.25, active:true, series:[{m:5,c:118,d:17},{m:6,c:510,d:87}] },
+    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Nord-Kivu Province',          species:'bundibugyo', cases:247,  deaths:146, lat:0.14,  lon:29.29, active:true, series:[{m:5,c:8,d:1},{m:6,c:83,d:12}] },
+    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Haut-Uélé Province',          species:'bundibugyo', cases:16,   deaths:10,  lat:2.77,  lon:27.62, active:true, series:[{m:5,c:2,d:0},{m:6,c:10,d:2}] },
+    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Tshopo Province',             species:'bundibugyo', cases:5,    deaths:4,   lat:0.52,  lon:25.20, active:true, series:[{m:5,c:0,d:0},{m:6,c:3,d:1}] },
+    { year:2026, label:'2026 (ongoing)', country:'DR Congo',        place:'Sud-Kivu Province',           species:'bundibugyo', cases:3,    deaths:1,   lat:-2.51, lon:28.84, active:true, series:[{m:5,c:0,d:0},{m:6,c:2,d:0}] },
+    { year:2026, label:'2026 (ongoing)', country:'Uganda',          place:'Kampala',                     species:'bundibugyo', cases:20,   deaths:2,   lat:0.31,  lon:32.58, active:true, series:[{m:5,c:0,d:0},{m:6,c:15,d:1}] }
   ];
 
   const LEGEND = {
@@ -219,6 +225,7 @@
   const NOW_Y = 2026, NOW_M = 7;   // current month (July 2026)
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const monthIdx = (y, m) => y * 12 + (m - 1);
+  const NOW_IDX = monthIdx(NOW_Y, NOW_M);
   const STOPS = [];
   for (let k = 0; k <= 12; k++) {                     // last 12 months, monthly
     let y = NOW_Y, m = NOW_M - k;
@@ -239,16 +246,32 @@
   // Bubble radius from case count (log scale), clamped for readability.
   function radiusFor(cases) { return Math.max(4.5, Math.min(30, 4 + 6.2 * Math.log10(cases + 1))); }
 
-  function tooltipHtml(o) {
+  // Cumulative cases/deaths to display for an outbreak at the current timeline
+  // stop. Outbreaks with a monthly `series` (the 2026 epidemic) grow month by
+  // month while the slider sits within their months; elsewhere the latest total
+  // is shown (the current epidemic anchors the historical/reach-back views).
+  function effStats(o) {
+    if (!o.series) return { cases: o.cases, deaths: o.deaths };
+    const S = sinceIdx();
+    const firstIdx = monthIdx(o.year, o.series[0].m);
+    if (S >= NOW_IDX || S < firstIdx) return { cases: o.cases, deaths: o.deaths };
+    let chosen = null;
+    for (const e of o.series) { if (monthIdx(o.year, e.m) <= S) chosen = e; }
+    return chosen ? { cases: chosen.c, deaths: chosen.d } : { cases: o.cases, deaths: o.deaths };
+  }
+
+  function tooltipHtml(o, es, asOf) {
     const info = specInfo(o.species);
-    const cfr = o.cases ? ((o.deaths / o.cases) * 100).toFixed(o.deaths ? 1 : 0) : '—';
+    const cases = es.cases, deaths = es.deaths;
+    const cfr = cases ? ((deaths / cases) * 100).toFixed(deaths ? 1 : 0) : '—';
     return `<div class="tt">
       <div class="tt-place">${o.country} · ${o.label}${o.active ? '<span class="tt-badge">Active</span>' : ''}</div>
+      ${asOf ? `<div style="font-size:10px;color:#a04a3a;margin:-2px 0 6px">cumulative as of ${asOf}</div>` : ''}
       <div class="tt-grid">
         <span class="tt-key">Location</span><span class="tt-val">${o.place}</span>
         <span class="tt-key">Virus</span><span class="tt-val" style="color:${info.color}">${info.label}</span>
-        <span class="tt-key">Cases</span><span class="tt-val">${fmt(o.cases)}</span>
-        <span class="tt-key">Deaths</span><span class="tt-val">${fmt(o.deaths)}</span>
+        <span class="tt-key">Cases</span><span class="tt-val">${fmt(cases)}</span>
+        <span class="tt-key">Deaths</span><span class="tt-val">${fmt(deaths)}</span>
         <span class="tt-key">Fatality rate</span><span class="tt-val">${cfr}%</span>
       </div>
     </div>`;
@@ -267,33 +290,44 @@
   function render() {
     layerGroup.clearLayers();
     let cases = 0, deaths = 0, count = 0;
-    const active = [];
-    // Draw larger bubbles first so small ones stay clickable on top.
-    visibleOutbreaks()
-      .slice()
-      .sort((a, b) => b.cases - a.cases)
-      .forEach(o => {
-        const info = specInfo(o.species);
-        const r = radiusFor(o.cases);
-        if (o.active) {
-          // Pulsing halo behind active-epidemic points.
-          layerGroup.addLayer(L.circleMarker([o.lat, o.lon], {
-            radius: r + 6, color: '#ff5a4d', weight: 1, opacity: 0.5,
-            fillColor: '#ff5a4d', fillOpacity: 0.10, interactive: false,
-            className: 'halo'
-          }));
-        }
-        const m = L.circleMarker([o.lat, o.lon], {
-          radius: r, fillColor: info.color, color: 'rgba(0,0,0,0.55)',
-          weight: 0.8, fillOpacity: 0.78, opacity: 1
-        });
-        const html = tooltipHtml(o);
-        m.bindTooltip(html, { sticky: true, opacity: 1 });
-        m.bindPopup(html);
-        layerGroup.addLayer(m);
-        cases += o.cases; deaths += o.deaths; count++;
-        if (o.active) active.push(o);
+    let activeCases = 0, activeDeaths = 0, activeAreas = 0;
+    const S = sinceIdx();
+    const stopLabel = STOPS[sincePos].label;
+    const epidemicScrub = S < NOW_IDX && S >= monthIdx(2026, 5);   // parked within the 2026 months
+
+    // Resolve each visible outbreak to its as-of-now size, drop areas that had
+    // no cases yet at this point, and draw larger bubbles first so small ones
+    // stay clickable on top.
+    const rows = visibleOutbreaks()
+      .map(o => {
+        const es = effStats(o);
+        const asOf = (o.series && S < NOW_IDX && es.cases !== o.cases) ? stopLabel : null;
+        return { o, es, asOf };
+      })
+      .filter(r => r.es.cases > 0)
+      .sort((a, b) => b.es.cases - a.es.cases);
+
+    rows.forEach(({ o, es, asOf }) => {
+      const info = specInfo(o.species);
+      const r = radiusFor(es.cases);
+      if (o.active) {
+        // Translucent halo behind active-epidemic points.
+        layerGroup.addLayer(L.circleMarker([o.lat, o.lon], {
+          radius: r + 6, color: '#ff5a4d', weight: 1, opacity: 0.5,
+          fillColor: '#ff5a4d', fillOpacity: 0.10, interactive: false
+        }));
+      }
+      const m = L.circleMarker([o.lat, o.lon], {
+        radius: r, fillColor: info.color, color: 'rgba(0,0,0,0.55)',
+        weight: 0.8, fillOpacity: 0.78, opacity: 1
       });
+      const html = tooltipHtml(o, es, asOf);
+      m.bindTooltip(html, { sticky: true, opacity: 1 });
+      m.bindPopup(html);
+      layerGroup.addLayer(m);
+      cases += es.cases; deaths += es.deaths; count++;
+      if (o.active) { activeCases += es.cases; activeDeaths += es.deaths; activeAreas++; }
+    });
 
     document.getElementById('st-out').textContent = fmt(count);
     document.getElementById('st-cases').textContent = fmt(cases);
@@ -301,12 +335,12 @@
     document.getElementById('st-cfr').textContent = cases ? ((deaths / cases) * 100).toFixed(1) + '%' : '—';
 
     const box = document.getElementById('active-box');
-    if (active.length) {
-      const ac = active.reduce((s, o) => s + o.cases, 0);
-      const ad = active.reduce((s, o) => s + o.deaths, 0);
+    if (activeAreas) {
+      const asOfTxt = epidemicScrub ? ` <b>as of ${stopLabel}</b>` : '';
       document.getElementById('active-text').innerHTML =
-        `<b style="color:#f2857a">2026 Central Africa epidemic</b> — Bundibugyo virus, DR Congo &amp; Uganda. ` +
-        `${fmt(ac)} cases, ${fmt(ad)} deaths across ${active.length} areas. Declared a WHO Public Health Emergency of International Concern.`;
+        `<b style="color:#f2857a">2026 Central Africa epidemic</b> — Bundibugyo virus, DR Congo &amp; Uganda.${asOfTxt} ` +
+        `${fmt(activeCases)} cases, ${fmt(activeDeaths)} deaths across ${activeAreas} area${activeAreas > 1 ? 's' : ''}. ` +
+        `Declared a WHO Public Health Emergency of International Concern.`;
       box.classList.add('show');
     } else {
       box.classList.remove('show');
