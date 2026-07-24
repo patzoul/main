@@ -27,6 +27,29 @@
     input[type="range"] { width: 100%; accent-color: #e07a5f; cursor: pointer; height: 4px; }
     .scale-hint { display: flex; justify-content: space-between; font-size: 9px; color: #667; margin-top: 3px; letter-spacing: 0.3px; }
 
+    /* Dual-thumb range (start / end window) */
+    .range-wrap { position: relative; height: 18px; margin-top: 2px; }
+    .range-track, .range-fill { position: absolute; top: 7px; height: 4px; border-radius: 2px; pointer-events: none; }
+    .range-track { left: 0; right: 0; background: rgba(255,255,255,0.15); }
+    .range-fill { background: #e07a5f; }
+    .range-wrap input[type="range"] {
+      position: absolute; top: 0; left: 0; width: 100%; height: 18px; margin: 0;
+      -webkit-appearance: none; appearance: none; background: transparent; pointer-events: none;
+    }
+    .range-wrap input[type="range"]::-webkit-slider-runnable-track { -webkit-appearance: none; height: 18px; background: transparent; }
+    .range-wrap input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; pointer-events: auto; margin-top: 1.5px;
+      width: 15px; height: 15px; border-radius: 50%; background: #e07a5f;
+      border: 2px solid #12121e; box-shadow: 0 1px 3px rgba(0,0,0,0.5); cursor: pointer;
+    }
+    .range-wrap input[type="range"]::-moz-range-track { height: 18px; background: transparent; }
+    .range-wrap input[type="range"]::-moz-range-thumb {
+      pointer-events: auto; width: 15px; height: 15px; border-radius: 50%; background: #e07a5f;
+      border: 2px solid #12121e; box-shadow: 0 1px 3px rgba(0,0,0,0.5); cursor: pointer;
+    }
+    #startSlider { z-index: 4; }   /* start thumb wins where the two overlap */
+    #endSlider { z-index: 3; }
+
     .play-row { display: flex; gap: 8px; margin-top: 9px; }
     .play-btn {
       flex: 1; background: rgba(224,122,95,0.14); color: #e07a5f;
@@ -98,12 +121,17 @@
   <h2>Ebola in Africa</h2>
   <div class="subtitle">Outbreak progress · 1976 – 2026</div>
 
-  <div class="ctrl-label">Showing since &nbsp;<span class="val" id="yearVal">now</span></div>
-  <input type="range" id="yearSlider" min="0" max="1" step="1" value="0">
-  <div class="scale-hint"><span>now</span><span>months → years →</span><span>1976</span></div>
+  <div class="ctrl-label"><span>From <span class="val" id="startVal">May 2026</span></span><span>to <span class="val" id="endVal">now</span></span></div>
+  <div class="range-wrap">
+    <div class="range-track"></div>
+    <div class="range-fill" id="rangeFill"></div>
+    <input type="range" id="startSlider" min="0" max="1" value="0" aria-label="Window start">
+    <input type="range" id="endSlider" min="0" max="1" value="1" aria-label="Window end">
+  </div>
+  <div class="scale-hint"><span>1976</span><span>yearly → monthly</span><span>now</span></div>
   <div class="play-row">
-    <button class="play-btn" id="playBtn">▶ Play back in time</button>
-    <button class="play-btn sm" id="allBtn" title="Show full history">All</button>
+    <button class="play-btn" id="playBtn">▶ Play</button>
+    <button class="play-btn sm" id="allBtn" title="Widen to the full record">Full</button>
   </div>
 
   <div class="ctrl-label" style="margin-top:13px">Min cases &nbsp;<span class="val" id="minCasesVal">all</span></div>
@@ -219,44 +247,46 @@
   let currentMinCases = 0;
   let playTimer = null;
 
-  // Mixed-resolution timeline. The slider steps by MONTH for the most recent year,
-  // then by YEAR further back to the first outbreak (1976). STOPS[0] = now (most
-  // recent) on the left; higher index reaches further back in time.
+  // Mixed-resolution timeline in chronological order: STOPS[0] = 1976 (left),
+  // stepping by YEAR up to 2024, then by MONTH over the most recent year to
+  // STOPS[LAST_STOP] = now (right). Two thumbs pick a start/end window.
   const NOW_Y = 2026, NOW_M = 7;   // current month (July 2026)
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const monthIdx = (y, m) => y * 12 + (m - 1);
   const NOW_IDX = monthIdx(NOW_Y, NOW_M);
   const STOPS = [];
-  for (let k = 0; k <= 12; k++) {                     // last 12 months, monthly
+  for (let y = 1976; y <= NOW_Y - 2; y++) {           // older history, yearly
+    STOPS.push({ idx: monthIdx(y, 1), label: String(y) });
+  }
+  for (let k = 12; k >= 0; k--) {                     // last 12 months, monthly
     let y = NOW_Y, m = NOW_M - k;
     while (m <= 0) { m += 12; y -= 1; }
     STOPS.push({ idx: monthIdx(y, m), label: k === 0 ? 'now' : `${MONTHS[m - 1]} ${y}` });
   }
-  for (let y = NOW_Y - 2; y >= 1976; y--) {           // older history, yearly
-    STOPS.push({ idx: monthIdx(y, 1), label: y === 1976 ? '1976 · all' : String(y) });
-  }
   const LAST_STOP = STOPS.length - 1;
-  let sincePos = 0;                                   // slider position; 0 = now
-  const sinceIdx = () => STOPS[sincePos].idx;
 
-  // Precompute each outbreak's start index (year + optional start month).
-  OUTBREAKS.forEach(o => { o._idx = monthIdx(o.year, o.month || 1); });
+  // Precompute each outbreak's start index (first series month, else month/year).
+  OUTBREAKS.forEach(o => { o._idx = monthIdx(o.year, o.series ? o.series[0].m : (o.month || 1)); });
+
+  // Window thumbs: end defaults to now (today); start defaults to the start of
+  // the most recent outbreak (the 2026 epidemic, May 2026).
+  const latestStart = Math.max(...OUTBREAKS.map(o => o._idx));
+  let startPos = STOPS.findIndex(s => s.idx === latestStart);
+  if (startPos < 0) startPos = 0;
+  let endPos = LAST_STOP;
 
   const fmt = n => n.toLocaleString('en-US');
   // Bubble radius from case count (log scale), clamped for readability.
   function radiusFor(cases) { return Math.max(4.5, Math.min(30, 4 + 6.2 * Math.log10(cases + 1))); }
 
-  // Cumulative cases/deaths to display for an outbreak at the current timeline
-  // stop. Outbreaks with a monthly `series` (the 2026 epidemic) grow month by
-  // month while the slider sits within their months; elsewhere the latest total
-  // is shown (the current epidemic anchors the historical/reach-back views).
-  function effStats(o) {
+  // Cumulative cases/deaths to display for an outbreak as of the window's end
+  // date. Outbreaks with a monthly `series` (the 2026 epidemic) grow month by
+  // month as the end thumb moves; at/after "now" the latest total is shown.
+  function effStats(o, endIdx) {
     if (!o.series) return { cases: o.cases, deaths: o.deaths };
-    const S = sinceIdx();
-    const firstIdx = monthIdx(o.year, o.series[0].m);
-    if (S >= NOW_IDX || S < firstIdx) return { cases: o.cases, deaths: o.deaths };
+    if (endIdx >= NOW_IDX) return { cases: o.cases, deaths: o.deaths };
     let chosen = null;
-    for (const e of o.series) { if (monthIdx(o.year, e.m) <= S) chosen = e; }
+    for (const e of o.series) { if (monthIdx(o.year, e.m) <= endIdx) chosen = e; }
     return chosen ? { cases: chosen.c, deaths: chosen.d } : { cases: o.cases, deaths: o.deaths };
   }
 
@@ -278,11 +308,10 @@
   }
 
   function visibleOutbreaks() {
-    // Show the ongoing epidemic plus every outbreak that started at/after the
-    // selected point; reaching further back reveals older outbreaks.
-    const since = sinceIdx();
+    // Show every outbreak whose start falls inside the [start, end] window.
+    const sIdx = STOPS[startPos].idx, eIdx = STOPS[endPos].idx;
     return OUTBREAKS.filter(o =>
-      (o.active || o._idx >= since) &&
+      o._idx >= sIdx && o._idx <= eIdx &&
       o.cases >= currentMinCases &&
       !hiddenSpecies.has(o.species));
   }
@@ -291,17 +320,17 @@
     layerGroup.clearLayers();
     let cases = 0, deaths = 0, count = 0;
     let activeCases = 0, activeDeaths = 0, activeAreas = 0;
-    const S = sinceIdx();
-    const stopLabel = STOPS[sincePos].label;
-    const epidemicScrub = S < NOW_IDX && S >= monthIdx(2026, 5);   // parked within the 2026 months
+    const eIdx = STOPS[endPos].idx;
+    const endLabel = STOPS[endPos].label;
+    const asOfEnd = endPos < LAST_STOP;   // end thumb pulled back before "now"
 
-    // Resolve each visible outbreak to its as-of-now size, drop areas that had
-    // no cases yet at this point, and draw larger bubbles first so small ones
+    // Resolve each visible outbreak to its size as of the window end, drop areas
+    // that had no cases yet by then, and draw larger bubbles first so small ones
     // stay clickable on top.
     const rows = visibleOutbreaks()
       .map(o => {
-        const es = effStats(o);
-        const asOf = (o.series && S < NOW_IDX && es.cases !== o.cases) ? stopLabel : null;
+        const es = effStats(o, eIdx);
+        const asOf = (o.series && asOfEnd) ? endLabel : null;
         return { o, es, asOf };
       })
       .filter(r => r.es.cases > 0)
@@ -336,7 +365,7 @@
 
     const box = document.getElementById('active-box');
     if (activeAreas) {
-      const asOfTxt = epidemicScrub ? ` <b>as of ${stopLabel}</b>` : '';
+      const asOfTxt = asOfEnd ? ` <b>as of ${endLabel}</b>` : '';
       document.getElementById('active-text').innerHTML =
         `<b style="color:#f2857a">2026 Central Africa epidemic</b> — Bundibugyo virus, DR Congo &amp; Uganda.${asOfTxt} ` +
         `${fmt(activeCases)} cases, ${fmt(activeDeaths)} deaths across ${activeAreas} area${activeAreas > 1 ? 's' : ''}. ` +
@@ -369,23 +398,38 @@
     });
   }
 
-  function setPos(p) {
-    sincePos = Math.max(0, Math.min(LAST_STOP, p));
-    document.getElementById('yearVal').textContent = STOPS[sincePos].label;
-    document.getElementById('yearSlider').value = sincePos;
+  const startSlider = document.getElementById('startSlider');
+  const endSlider = document.getElementById('endSlider');
+  const rangeFill = document.getElementById('rangeFill');
+
+  function syncWindow() {
+    document.getElementById('startVal').textContent = STOPS[startPos].label;
+    document.getElementById('endVal').textContent = STOPS[endPos].label;
+    startSlider.value = startPos;
+    endSlider.value = endPos;
+    const a = (startPos / LAST_STOP) * 100, b = (endPos / LAST_STOP) * 100;
+    rangeFill.style.left = a + '%';
+    rangeFill.style.width = (b - a) + '%';
     render();
   }
 
   function stopPlay() {
     if (playTimer) { clearInterval(playTimer); playTimer = null; }
-    document.getElementById('playBtn').textContent = '▶ Play back in time';
+    document.getElementById('playBtn').textContent = '▶ Play';
   }
 
-  const yearSlider = document.getElementById('yearSlider');
-  yearSlider.min = 0; yearSlider.max = LAST_STOP; yearSlider.step = 1; yearSlider.value = 0;
-  yearSlider.addEventListener('input', e => {
+  [startSlider, endSlider].forEach(s => { s.min = 0; s.max = LAST_STOP; s.step = 1; });
+
+  // The end thumb may not move before the start thumb, and vice versa.
+  startSlider.addEventListener('input', () => {
     stopPlay();
-    setPos(parseInt(e.target.value));
+    startPos = Math.min(parseInt(startSlider.value), endPos);
+    syncWindow();
+  });
+  endSlider.addEventListener('input', () => {
+    stopPlay();
+    endPos = Math.max(parseInt(endSlider.value), startPos);
+    syncWindow();
   });
 
   document.getElementById('minCasesSlider').addEventListener('input', e => {
@@ -395,24 +439,27 @@
     render();
   });
 
+  // "Full" widens the window to the entire record (1976 → now).
   document.getElementById('allBtn').addEventListener('click', () => {
     stopPlay();
-    setPos(LAST_STOP);
+    startPos = 0; endPos = LAST_STOP;
+    syncWindow();
   });
 
-  // Play starts at the present and steps back through time (months, then years).
+  // Play sweeps the end thumb forward from the start, animating the progression.
   document.getElementById('playBtn').addEventListener('click', () => {
     if (playTimer) { stopPlay(); return; }
-    if (sincePos >= LAST_STOP) setPos(0);
+    if (endPos >= LAST_STOP) { endPos = startPos; syncWindow(); }
     document.getElementById('playBtn').textContent = '⏸ Pause';
     playTimer = setInterval(() => {
-      if (sincePos >= LAST_STOP) { stopPlay(); return; }
-      setPos(sincePos + 1);
+      if (endPos >= LAST_STOP) { stopPlay(); return; }
+      endPos += 1;
+      syncWindow();
     }, 380);
   });
 
   buildToggles();
-  setPos(0);
+  syncWindow();
 </script>
 </body>
 </html>

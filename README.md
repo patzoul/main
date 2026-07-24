@@ -10,7 +10,7 @@ full list.
 - **[world_fires.html](world_fires.html)** — global active-fire / thermal-anomaly detections from [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS / MODIS), colored by fire radiative power, with satellite/day-range/intensity filters. Requires a free FIRMS proxy (see below)
 - **[mideast_fires.html](mideast_fires.html)** — Middle East FIRMS fires overlaid on a curated list of major refineries / oil terminals, with **baseline change-detection**: a facility is flagged only when its current fire intensity spikes above its own recent baseline (so routine flaring stays quiet). Candidates, not confirmations. Uses the same FIRMS proxy
 - **[russia_ukraine_fires.html](russia_ukraine_fires.html)** — the same FIRMS + change-detection monitor over the Russia–Ukraine theatre, with a curated list of Russian & Ukrainian refineries / oil terminals. Uses the same FIRMS proxy
-- **[ebola_africa.html](ebola_africa.html)** — the progress of Ebola virus disease (EVD) outbreaks across Africa from 1976 to the present, on a **playable timeline**: the timeline opens on the current epidemic and reaches **back in time** — month by month over the past year, then year by year to 1976 (drag it, or hit ▶ Play) — with outbreaks sized by reported cases (log scale) and colored by virus species (Zaire / Sudan / Bundibugyo / Taï Forest). A **minimum-cases slider** (like the earthquake map's min-magnitude control) filters out smaller flare-ups to isolate the major epidemics. The running **active 2026 Central Africa epidemic** (Bundibugyo virus, DR Congo & Uganda) is broken out by province and highlighted. Curated from [CDC](https://www.cdc.gov/ebola/outbreaks/) & [WHO](https://www.who.int/) reporting; self-contained, no key required
+- **[ebola_africa.html](ebola_africa.html)** — the progress of Ebola virus disease (EVD) outbreaks across Africa from 1976 to the present, on a **playable timeline**: a **dual-handle time window** (start / end) selects the period shown — it opens on the latest outbreak (start = the 2026 epidemic's onset, end = today) and you drag either handle to widen back through history: year by year across the older record, then month by month near the present (the end handle can't move before the start). Outbreaks are sized by reported cases (log scale) and colored by virus species (Zaire / Sudan / Bundibugyo / Taï Forest). A **minimum-cases slider** (like the earthquake map's min-magnitude control) filters out smaller flare-ups to isolate the major epidemics. The running **active 2026 Central Africa epidemic** (Bundibugyo virus, DR Congo & Uganda) is broken out by province and highlighted. Curated from [CDC](https://www.cdc.gov/ebola/outbreaks/) & [WHO](https://www.who.int/) reporting; self-contained, no key required
 - **[natural_events.html](natural_events.html)** — active natural events worldwide from [NASA EONET](https://eonet.gsfc.nasa.gov/) (volcanoes, severe storms, floods, icebergs, etc.), colored by category with clickable type toggles and storm/iceberg tracks. No key required
 - **[weather_radar.html](weather_radar.html)** — animated global precipitation radar from [RainViewer](https://www.rainviewer.com/) (past ~2 h, playable loop with timeline scrub and opacity control). No key required
 - **[malacca_ships.html](malacca_ships.html)** — live ship traffic in the Strait of Malacca via [aisstream.io](https://aisstream.io) AIS data
@@ -70,13 +70,16 @@ the file** — every significant African EVD outbreak from the first (1976,
 Yambuku, then Zaire) through the ongoing 2026 Central Africa epidemic — compiled
 from the CDC "History of Ebola Outbreaks" chronology and WHO Disease Outbreak
 News. Each entry carries the year, country, location, virus species, and
-cumulative reported cases/deaths. The map opens on the current epidemic and the
-timeline reaches **back in time** — month by month over the past year, then year
-by year to 1976 (drag it or hit **Play**) — revealing older outbreaks and
-totalling the cases, deaths, and case-fatality rate for what's shown. The
-ongoing **2026 Central Africa epidemic** also carries a monthly case series, so
-scrubbing its months (May → Jun → now) grows its bubbles and stats as the
-outbreak spreads across the provinces. Its epidemic-wide monthly totals are the
+cumulative reported cases/deaths. A **dual-handle time window** picks the period
+shown: it opens on the latest outbreak (start = the 2026 epidemic's onset, end =
+today) and either handle drags to widen the window back through history — year
+by year across the older record, then month by month near the present (the end
+handle can't move before the start). The stats panel totals the cases, deaths,
+and case-fatality rate for the window, and **Play** sweeps the end handle forward
+to animate the progression. The ongoing **2026 Central Africa epidemic** carries
+a monthly case series, so pulling the end handle across its months (May → Jun →
+now) grows its bubbles and stats **as of that date** as the outbreak spreads
+across the provinces. Its epidemic-wide monthly totals are the
 figures reported by WHO (≈128 cases end-May, ≈623 mid-June, ≈2,500 by late
 July); the per-province split of those monthly totals is reconstructed (only the
 latest per-province breakdown is reported). Recent and ongoing figures are
