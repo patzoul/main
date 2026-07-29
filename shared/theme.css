@@ -1,0 +1,133 @@
+/* Shared theme for the Leaflet map pages (world/japan earthquakes, fires,
+ * natural events, weather radar, ships, submarine cables).
+ *
+ * Each page sets its own accent before this loads no longer applies — instead
+ * set `--accent` / `--accent-rgb` in a small `:root { ... }` rule in the
+ * page's own <style> block (after this stylesheet is linked) to pick the hue;
+ * everything else here (panel/legend/loading/tooltip chrome) is shared.
+ * Defaults to the blue theme if a page doesn't override them.
+ *
+ * electricity_map.html is a separate Plotly-based page with its own
+ * self-contained theme and does not use this file.
+ */
+
+:root {
+  --accent: #7eb8f7;
+  --accent-rgb: 126, 184, 247;
+  --accent-border: rgba(var(--accent-rgb), 0.28);
+  --accent-dim: rgba(var(--accent-rgb), 0.2);
+  --bg: #0d0d1a;
+  --bg-map: #0a0a14;
+  --panel-bg: rgba(10, 10, 25, 0.90);
+  --text-muted: #aab;
+  --text-dim: #667;
+  --error: #e74c3c;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg); }
+#map { width: 100vw; height: 100vh; background: var(--bg-map); }
+
+/* ---- Panel ---- */
+#panel {
+  position: absolute; top: 14px; left: 14px; z-index: 1000;
+  background: var(--panel-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px; padding: 14px 18px; min-width: 230px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+#panel h2 {
+  font-size: 13px; font-weight: 700; letter-spacing: 1px;
+  color: var(--accent); margin-bottom: 2px; text-transform: uppercase;
+}
+#panel .subtitle { font-size: 11px; color: var(--text-dim); margin-bottom: 12px; }
+
+/* ---- Controls ---- */
+.ctrl-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-bottom: 5px; }
+.ctrl-label .val { color: var(--accent); font-weight: 700; font-size: 13px; }
+input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; height: 4px; border-radius: 2px; }
+
+/* ---- Stats ---- */
+#stats { margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 11px; color: #889; }
+#stats b { color: var(--accent); }
+#stats .timestamp, #stats .sub { font-size: 10px; color: var(--text-dim); margin-top: 4px; line-height: 1.5; }
+
+/* ---- Loading overlay (blocking variant — pages that fetch on load) ---- */
+#loading {
+  position: absolute; inset: 0;
+  background: rgba(10,10,25,0.88);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2000; flex-direction: column; gap: 14px;
+}
+#loading.hide { display: none; }
+.spinner {
+  width: 36px; height: 36px;
+  border: 3px solid var(--accent-dim);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#loading p { color: var(--accent); font-size: 13px; letter-spacing: 0.5px; }
+#error-msg { color: var(--error); font-size: 12px; max-width: 280px; text-align: center; }
+
+/* ---- Legend ---- */
+.legend {
+  position: absolute; bottom: 28px; right: 14px; z-index: 1000;
+  background: var(--panel-bg);
+  border: 1px solid var(--accent-border);
+  border-radius: 10px; padding: 12px 16px; min-width: 160px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+.legend h4 { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); margin-bottom: 8px; }
+.leg-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.leg-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.2); }
+.leg-txt { font-size: 11px; color: var(--text-muted); }
+.leg-divider { border: none; border-top: 1px solid rgba(255,255,255,0.08); margin: 9px 0; }
+.leg-size-row { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.leg-note { font-size: 10px; color: var(--text-dim); line-height: 1.5; margin-top: 8px; }
+
+/* ---- Source / attribution note ---- */
+.source-note { position: absolute; bottom: 8px; left: 14px; z-index: 1000; font-size: 10px; color: #445; }
+.source-note a { color: #5a7fa8; }
+#attribution {
+  position: absolute; bottom: 14px; left: 14px; z-index: 1000;
+  background: rgba(10, 10, 25, 0.80);
+  border: 1px solid var(--accent-border);
+  border-radius: 8px; padding: 8px 12px; max-width: 320px;
+  font-size: 10px; color: var(--text-dim); line-height: 1.6;
+  backdrop-filter: blur(10px);
+}
+#attribution a { color: #7898c8; }
+
+/* ---- Leaflet tooltip / popup content (white card) ---- */
+.leaflet-tooltip {
+  background: rgba(255,255,255,0.97) !important;
+  border: none !important;
+  border-radius: 8px !important;
+  box-shadow: 0 3px 14px rgba(0,0,0,0.3) !important;
+  padding: 0 !important;
+}
+.leaflet-tooltip::before { display: none !important; }
+.leaflet-tooltip-bottom::before, .leaflet-tooltip-top::before {
+  border-bottom-color: rgba(255,255,255,0.97) !important;
+  border-top-color: rgba(255,255,255,0.97) !important;
+}
+.tt { padding: 9px 12px; min-width: 190px; }
+.tt-place { font-size: 12px; font-weight: 700; color: #222; margin-bottom: 6px; line-height: 1.3; }
+.tt-grid { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; }
+.tt-key { font-size: 11px; color: #888; }
+.tt-val { font-size: 11px; font-weight: 600; color: #333; }
+.tt-val.red, .tt-val.hot { color: #c0392b; }
+.tt-val.flag { color: #b9770e; }
+
+/* ---- Connect/live status indicator (ship + fire "enter a key" pages) ---- */
+.status-row { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
+.status-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: #f1c40f; }
+.status-dot.connecting { background: #f1c40f; animation: pulse 1.2s infinite; }
+.status-dot.live { background: #2ecc71; animation: pulse 1.6s infinite; }
+.status-dot.warn { background: #f1c40f; }
+.status-dot.error { background: #e74c3c; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
