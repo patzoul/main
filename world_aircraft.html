@@ -10,26 +10,6 @@
   <style>
     #panel { width: 240px; }
 
-    /* Setup form */
-    #setupForm { display: none; }
-    #setupForm p { font-size: 11px; color: #99a; line-height: 1.5; margin-bottom: 10px; }
-    #setupForm a { color: #7eb8f7; }
-    #proxyInput {
-      width: 100%; padding: 7px 9px; font-size: 12px;
-      background: rgba(255,255,255,0.06); border: 1px solid rgba(120,190,255,0.25);
-      border-radius: 6px; color: #dde; margin-bottom: 8px; outline: none;
-    }
-    #proxyInput:focus { border-color: #7eb8f7; }
-    #connectBtn {
-      width: 100%; padding: 8px; font-size: 12px; font-weight: 700;
-      letter-spacing: 0.5px; text-transform: uppercase;
-      background: #7eb8f7; color: #0d0d1a; border: none; border-radius: 6px; cursor: pointer;
-    }
-    #connectBtn:hover { background: #9ecbff; }
-    #setupForm .note { font-size: 10px; color: #556; margin-top: 8px; line-height: 1.5; }
-
-    /* Live stats */
-    #liveStats { display: none; }
     .stat-row {
       display: flex; justify-content: space-between;
       font-size: 12px; color: #aab; margin-bottom: 4px;
@@ -42,27 +22,13 @@
     .stat-row.toggle.off { opacity: 0.4; }
     .stat-row.toggle.off span { text-decoration: line-through; }
     .stat-row .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; vertical-align: middle; }
-    #liveStats .footer-row {
+    #stats .footer-row {
       margin-top: 8px; padding-top: 7px;
       border-top: 1px solid rgba(255,255,255,0.08);
-      font-size: 10px; color: #556;
+      font-size: 10px; color: #556; line-height: 1.5;
     }
-    #changeProxy { color: #5a7fa8; cursor: pointer; text-decoration: underline; }
 
     .legend { min-width: 160px; }
-
-    /* Non-blocking loading overlay — waits for a proxy URL before fetching. */
-    #loading {
-      position: absolute; inset: 0; background: rgba(10,10,25,0.55);
-      display: none; align-items: center; justify-content: center;
-      z-index: 1500; flex-direction: column; gap: 12px; pointer-events: none;
-    }
-    #loading.show { display: flex; }
-    .spinner {
-      width: 34px; height: 34px; border: 3px solid rgba(126,184,247,0.2);
-      border-top-color: #7eb8f7; border-radius: 50%; animation: spin 0.9s linear infinite;
-    }
-    #loading p { color: #7eb8f7; font-size: 12px; }
 
     .leaflet-popup-content-wrapper {
       background: rgba(255,255,255,0.97) !important; color: #222 !important;
@@ -79,37 +45,16 @@
 
   <div class="status-row">
     <div class="status-dot" id="statusDot"></div>
-    <span id="statusText">Not configured</span>
+    <span id="statusText">Loading…</span>
   </div>
 
-  <div id="setupForm">
-    <p>
-      This map reads live aircraft positions from the
-      <a href="https://opensky-network.org/" target="_blank">OpenSky Network</a>.
-      OpenSky blocks direct browser access, so it goes through a small free
-      proxy you deploy once. Paste your proxy (Cloudflare Worker) URL:
-    </p>
-    <input type="text" id="proxyInput" placeholder="https://open-data-proxy.you.workers.dev" autocomplete="off" spellcheck="false">
-    <button id="connectBtn">Connect</button>
-    <div class="note">
-      No API key needed — OpenSky's anonymous tier is free, the proxy just
-      adds the CORS header a browser requires (and caches responses so it
-      stays well under OpenSky's daily anonymous quota). The URL is kept
-      only in this browser's local storage. See <b>open-data-proxy.js</b> in
-      the repo for the Worker code &amp; setup steps.
-    </div>
-  </div>
-
-  <div id="liveStats">
+  <div id="stats">
     <div class="stat-row total">Tracked <b id="acCount">—</b></div>
     <div class="stat-row toggle" data-band="ground"><span><span class="swatch" style="background:#7f8c8d"></span>On ground</span><b id="cntGround">0</b></div>
     <div class="stat-row toggle" data-band="low"><span><span class="swatch" style="background:#f1c40f"></span>Low (&lt; 10,000 ft)</span><b id="cntLow">0</b></div>
     <div class="stat-row toggle" data-band="cruise"><span><span class="swatch" style="background:#5dade2"></span>Mid (10–30k ft)</span><b id="cntCruise">0</b></div>
     <div class="stat-row toggle" data-band="high"><span><span class="swatch" style="background:#9b59b6"></span>Cruise (&gt; 30,000 ft)</span><b id="cntHigh">0</b></div>
-    <div class="footer-row">
-      <span id="ts"></span><br>
-      <span id="changeProxy">Change proxy URL</span>
-    </div>
+    <div class="footer-row" id="ts"></div>
   </div>
 </div>
 
@@ -119,10 +64,10 @@
   <div class="leg-row"><div class="leg-dot" style="background:#f1c40f"></div><span class="leg-txt">Low, &lt; 10,000 ft</span></div>
   <div class="leg-row"><div class="leg-dot" style="background:#5dade2"></div><span class="leg-txt">Mid, 10,000–30,000 ft</span></div>
   <div class="leg-row"><div class="leg-dot" style="background:#9b59b6"></div><span class="leg-txt">Cruise, &gt; 30,000 ft</span></div>
-  <div class="leg-note">Refreshes every 5 min. Positions are ADS-B reports and can be sparse over oceans/regions with low receiver coverage.</div>
+  <div class="leg-note">A snapshot refreshed hourly (OpenSky blocks live in-browser access from most proxies) — not true real-time. Positions can be sparse over oceans/regions with low receiver coverage.</div>
 </div>
 
-<div id="loading"><div class="spinner"></div><p>Loading aircraft…</p></div>
+<div id="loading"><div class="spinner"></div><p>Loading aircraft…</p><div id="error-msg"></div></div>
 <div id="map"></div>
 
 <script>
@@ -134,14 +79,13 @@
     subdomains: 'abcd', maxZoom: 19
   }).addTo(map);
 
-  const KEY = 'open_data_proxy_url';
-  const REFRESH_MS = 5 * 60 * 1000; // matches the Worker's 5-min OpenSky cache
+  const SNAPSHOT_URL = 'aircraft_snapshot.json';
+  const REFRESH_MS = 15 * 60 * 1000; // the underlying snapshot only updates hourly; this just re-checks within an open tab
   const MAX_RENDER = 12000; // safety cap so a dense global snapshot can't freeze the page
 
   const hiddenBands = new Set();
   let aircraft = []; // { lat, lon, callsign, country, altM, speedMs, track, vrate, ground, band }
   const layerGroup = L.layerGroup().addTo(map);
-  let refreshTimer = null;
 
   function setStatus(state, text) {
     document.getElementById('statusDot').className = 'status-dot ' + state;
@@ -196,81 +140,49 @@
     document.getElementById('cntHigh').textContent = counts.high.toLocaleString();
   }
 
-  function parseStates(json) {
+  // Snapshot format written by scripts/fetch-aircraft-snapshot.mjs:
+  // { fetchedAt, openskyTime, count, states: [[icao24, callsign, country,
+  //   lon, lat, altM, on_ground, velocityMs, trueTrack, verticalRate], ...] }
+  function parseSnapshot(json) {
     return (json.states || []).map(s => {
       const a = {
-        icao24: s[0], callsign: (s[1] || '').trim() || null, country: s[2],
-        lon: s[5], lat: s[6], altM: s[7] != null ? s[7] : s[13],
-        ground: !!s[8], speedMs: s[9], track: s[10], vrate: s[11],
+        icao24: s[0], callsign: s[1], country: s[2],
+        lon: s[3], lat: s[4], altM: s[5],
+        ground: !!s[6], speedMs: s[7], track: s[8], vrate: s[9],
       };
       a.band = altBand(a);
       return a;
     }).filter(a => a.lat != null && a.lon != null);
   }
 
+  function fmtAge(fetchedAt) {
+    const mins = Math.round((Date.now() - new Date(fetchedAt).getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    return `${Math.round(mins / 60)} h ago`;
+  }
+
   function fetchData() {
-    const proxy = localStorage.getItem(KEY);
-    if (!proxy) return;
-    const sep = proxy.includes('?') ? '&' : '?';
-    document.getElementById('loading').classList.add('show');
+    document.getElementById('loading').classList.remove('hide');
     setStatus('connecting', 'Loading…');
-    fetch(`${proxy}${sep}target=opensky`)
+    fetch(`${SNAPSHOT_URL}?_=${Date.now()}`, { cache: 'no-store' })
       .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
       .then(json => {
-        document.getElementById('loading').classList.remove('show');
-        aircraft = parseStates(json);
-        setStatus('live', 'Live');
-        document.getElementById('ts').textContent = json.time
-          ? 'Snapshot: ' + new Date(json.time * 1000).toLocaleTimeString()
-          : 'Updated: ' + new Date().toLocaleTimeString();
+        document.getElementById('loading').classList.add('hide');
+        aircraft = parseSnapshot(json);
+        setStatus('live', 'Snapshot');
+        document.getElementById('ts').textContent = json.fetchedAt
+          ? `Snapshot from ${fmtAge(json.fetchedAt)} · refreshed hourly`
+          : 'Refreshed hourly';
         render();
       })
       .catch(err => {
-        document.getElementById('loading').classList.remove('show');
+        document.getElementById('loading').classList.add('hide');
         setStatus('error', 'Fetch failed');
-        document.getElementById('ts').textContent = String(err).slice(0, 120) + ' — check the proxy URL';
+        document.getElementById('ts').textContent = String(err).slice(0, 120);
+        document.getElementById('error-msg').textContent = 'Could not load aircraft_snapshot.json — it may not exist yet (the hourly job hasn\'t run) or you\'re opening this file locally without the snapshot present.';
       });
   }
-
-  function showSetup() {
-    document.getElementById('setupForm').style.display = 'block';
-    document.getElementById('liveStats').style.display = 'none';
-    setStatus('warn', 'Not configured');
-    document.getElementById('statusDot').className = 'status-dot';
-    clearInterval(refreshTimer);
-  }
-  function showLiveStats() {
-    document.getElementById('setupForm').style.display = 'none';
-    document.getElementById('liveStats').style.display = 'block';
-  }
-
-  function init() {
-    if (localStorage.getItem(KEY)) {
-      showLiveStats();
-      fetchData();
-      refreshTimer = setInterval(fetchData, REFRESH_MS);
-    } else {
-      showSetup();
-    }
-  }
-
-  document.getElementById('connectBtn').addEventListener('click', () => {
-    const v = document.getElementById('proxyInput').value.trim();
-    if (!/^https?:\/\//.test(v)) { alert('Enter a full URL starting with https://'); return; }
-    localStorage.setItem(KEY, v.replace(/\/+$/, ''));
-    showLiveStats();
-    fetchData();
-    refreshTimer = setInterval(fetchData, REFRESH_MS);
-  });
-  document.getElementById('proxyInput').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('connectBtn').click(); });
-
-  document.getElementById('changeProxy').addEventListener('click', () => {
-    localStorage.removeItem(KEY);
-    layerGroup.clearLayers();
-    aircraft = [];
-    document.getElementById('proxyInput').value = '';
-    showSetup();
-  });
 
   document.querySelectorAll('.stat-row.toggle').forEach(row => {
     row.addEventListener('click', () => {
@@ -281,7 +193,8 @@
     });
   });
 
-  init();
+  fetchData();
+  setInterval(fetchData, REFRESH_MS);
 </script>
 </body>
 </html>

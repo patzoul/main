@@ -16,7 +16,7 @@ full list.
 - **[weather_radar.html](weather_radar.html)** — animated global precipitation radar from [RainViewer](https://www.rainviewer.com/) (past ~2 h, playable loop with timeline scrub and opacity control). No key required
 - **[malacca_ships.html](malacca_ships.html)** — live ship traffic in the Strait of Malacca via [aisstream.io](https://aisstream.io) AIS data
 - **[world_ships.html](world_ships.html)** — live worldwide ship traffic (whole-globe AIS) via [aisstream.io](https://aisstream.io), rendered as lightweight canvas dots colored by vessel type
-- **[world_aircraft.html](world_aircraft.html)** — live worldwide aircraft positions from the [OpenSky Network](https://opensky-network.org/), colored by altitude band (ground / low / mid / cruise). Requires the shared open-data proxy (see below)
+- **[world_aircraft.html](world_aircraft.html)** — worldwide aircraft positions from the [OpenSky Network](https://opensky-network.org/), colored by altitude band (ground / low / mid / cruise). An hourly snapshot, not live — see below
 - **[submarine_cables.html](submarine_cables.html)** — global submarine cable routes, landing points, and documented damage incidents (2024–2025), data from [TeleGeography](https://www.submarinecablemap.com)
 - **[electricity_map.html](electricity_map.html)** — world heatmap of average residential electricity price by country, with a live generation-mix breakdown (coal, gas, nuclear, hydro, wind, solar…) on hover
 
@@ -40,20 +40,33 @@ server-side and adds CORS. The Worker code and one-time setup steps are in
 (stored only in `localStorage`). Everything is free — the FIRMS key and the
 Workers free tier both cost nothing.
 
-The unrest and aircraft maps read from GDELT and the OpenSky Network — both
-free and keyless, but neither sends CORS headers, so a browser can't call them
-directly. They go through [`open-data-proxy.js`](open-data-proxy.js), a second
-**free Cloudflare Worker** that just adds CORS and edge-caches the response
-(GDELT for 10 min, OpenSky for 5 min — long enough to stay comfortably under
-OpenSky's 400-request/day anonymous quota regardless of how many people load
-the map). Unlike `firms-proxy.js` it holds no secret — there's no key to
-protect, only an allowlist of upstream targets. Deploy it once the same way
-(Cloudflare Workers & Pages → Create → Worker → paste the file's contents →
-Deploy) and paste its URL into either map (stored only in `localStorage`).
+The unrest map reads from GDELT — free and keyless, but it sends no CORS
+headers, so a browser can't call it directly. It goes through
+[`open-data-proxy.js`](open-data-proxy.js), a second **free Cloudflare
+Worker** that just adds CORS and edge-caches the response for 10 min. Unlike
+`firms-proxy.js` it holds no secret — there's no key to protect, only an
+allowlist of upstream targets. Deploy it once the same way (Cloudflare
+Workers & Pages → Create → Worker → paste the file's contents → Deploy) and
+paste its URL into `unrest_events.html` (stored only in `localStorage`).
 GDELT's unrest data is theme-mention geocoding, not a curated event database:
 one article can geocode to several places (e.g. a country named only in
 passing), so country-level ("coarse") mentions are hidden by default — toggle
 them back on if you want the raw feed.
+
+The aircraft map is **not live** — it reads a worldwide OpenSky Network
+snapshot committed to [`aircraft_snapshot.json`](aircraft_snapshot.json). A
+live in-browser proxy through `open-data-proxy.js` was tried first (the same
+approach as GDELT), but OpenSky blocks Cloudflare's IP ranges at the network
+level — every request through the Worker got a Cloudflare 522 (connection
+timeout), even after adding a browser User-Agent, while a direct request from
+an ordinary host succeeded immediately. A scheduled GitHub Actions job
+(`.github/workflows/update-aircraft-snapshot.yml` →
+[`scripts/fetch-aircraft-snapshot.mjs`](scripts/fetch-aircraft-snapshot.mjs))
+fetches from a GitHub-hosted runner instead — unaffected by that block — and
+commits the trimmed result hourly. No key or proxy needed; the panel shows
+how stale the current snapshot is. Hourly (not more often) keeps the
+committed ~800 KB snapshot from growing the repo too fast — bump the cron in
+the workflow if you'd rather trade repo growth for freshness.
 
 The two "fire watch" maps (Middle East, Russia–Ukraine) add **baseline
 change-detection**: for each refinery/terminal they compare the current fire

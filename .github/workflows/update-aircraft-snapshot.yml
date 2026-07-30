@@ -1,0 +1,53 @@
+name: Update aircraft snapshot
+
+# Hourly worldwide OpenSky Network aircraft-position snapshot, committed to
+# aircraft_snapshot.json, which world_aircraft.html reads directly.
+#
+# A live in-browser proxy (open-data-proxy.js) was tried first, but OpenSky
+# blocks Cloudflare's IP ranges at the network level (every request through
+# the Worker got a Cloudflare 522, while a direct request from an ordinary
+# host succeeds immediately) — fetching from a GitHub Actions runner instead
+# sidesteps that entirely. Hourly (not more often) keeps the committed
+# ~800 KB snapshot from growing the repo too fast — see
+# scripts/fetch-aircraft-snapshot.mjs for the size-trimming this already does.
+# Bump the cron below if you'd rather trade repo growth for freshness.
+
+on:
+  schedule:
+    - cron: '5 * * * *'   # hourly, at :05
+  workflow_dispatch: {}   # also runnable on demand from the Actions tab
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-aircraft-snapshot
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch snapshot
+        run: node scripts/fetch-aircraft-snapshot.mjs
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain aircraft_snapshot.json)" ]; then
+            git add aircraft_snapshot.json
+            git commit -m "Aircraft snapshot refresh ($(date -u +%Y-%m-%dT%H:%M))"
+            git push
+            echo "Pushed updated snapshot."
+          else
+            echo "No changes this run."
+          fi

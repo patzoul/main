@@ -1,13 +1,19 @@
 // ---------------------------------------------------------------------------
 // Open-data CORS proxy — Cloudflare Worker
 // ---------------------------------------------------------------------------
-// GDELT and OpenSky are both free, keyless, public APIs — but neither sends
-// CORS headers, so a browser can't call them directly. This Worker just adds
-// CORS and edge-caches the response. Unlike firms-proxy.js, it holds no
-// secret: there's no key to protect, only an allowlist of upstream targets.
+// GDELT is free and keyless, but sends no CORS headers, so a browser can't
+// call it directly. This Worker just adds CORS and edge-caches the response.
+// Unlike firms-proxy.js, it holds no secret: there's no key to protect, only
+// an allowlist of upstream targets.
 //
-// Powers: unrest_events.html (GDELT unrest/protest theme mentions) and
-//         world_aircraft.html (OpenSky live aircraft positions).
+// Powers: unrest_events.html (GDELT unrest/protest theme mentions).
+//
+// This Worker originally also proxied OpenSky (for world_aircraft.html), but
+// OpenSky blocks Cloudflare's IP ranges at the network level — every request
+// through here got a Cloudflare 522 (connection timeout), even after adding
+// a browser User-Agent, while a direct request from an ordinary host
+// succeeded immediately. That page now reads a snapshot fetched hourly by
+// a GitHub Actions runner instead — see scripts/fetch-aircraft-snapshot.mjs.
 //
 // ONE-TIME SETUP
 //   1. Create a Cloudflare account (free) → Workers & Pages → Create → Worker.
@@ -15,7 +21,7 @@
 //      second Worker under the same account.)
 //   2. Replace the generated code with THIS file's contents and Deploy.
 //   3. Copy the Worker URL (https://open-data-proxy.<you>.workers.dev) and
-//      paste it into either map when it asks for it.
+//      paste it into unrest_events.html when it asks for it.
 //
 // If you deploy under a different Pages origin, add it to ALLOWED_ORIGINS below.
 // ---------------------------------------------------------------------------
@@ -47,8 +53,7 @@ export default {
     const target = p.get('target');
 
     if (target === 'gdelt') return handleGdelt(p, cors);
-    if (target === 'opensky') return handleOpensky(cors);
-    return new Response('Unknown target — expected ?target=gdelt or ?target=opensky', { status: 400, headers: cors });
+    return new Response('Unknown target — expected ?target=gdelt', { status: 400, headers: cors });
   },
 };
 
@@ -71,29 +76,5 @@ async function handleGdelt(p, cors) {
   return new Response(body, {
     status: upstream.status,
     headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=600', ...cors },
-  });
-}
-
-async function handleOpensky(cors) {
-  // Anonymous OpenSky access shares a 400-requests/day pool across whoever
-  // calls it — and since this Worker is the caller (not each visitor), a
-  // 5-minute edge cache keeps total upstream calls to well under that quota
-  // no matter how many people load the map.
-  let upstream;
-  try {
-    upstream = await fetch('https://opensky-network.org/api/states/all', {
-      cf: { cacheTtl: 300, cacheEverything: true },
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
-        'Accept': 'application/json',
-      },
-    });
-  } catch (e) {
-    return new Response('Upstream fetch failed: ' + e, { status: 502, headers: cors });
-  }
-  const body = await upstream.text();
-  return new Response(body, {
-    status: upstream.status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=300', ...cors },
   });
 }
