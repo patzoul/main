@@ -83,6 +83,10 @@ async function handleOpensky(cors) {
   try {
     upstream = await fetch('https://opensky-network.org/api/states/all', {
       cf: { cacheTtl: 300, cacheEverything: true },
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+      },
     });
   } catch (e) {
     return new Response('Upstream fetch failed: ' + e, { status: 502, headers: cors });
