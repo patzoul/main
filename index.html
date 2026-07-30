@@ -39,6 +39,8 @@
     a.card.jp:hover { border-color: rgba(247,164,126,0.5); background: rgba(247,164,126,0.08); }
     a.card.fires h2 { color: #f5945b; }
     a.card.fires:hover { border-color: rgba(245,148,91,0.5); background: rgba(245,148,91,0.08); }
+    a.card.danger h2 { color: #e67e22; }
+    a.card.danger:hover { border-color: rgba(230,126,34,0.5); background: rgba(230,126,34,0.08); }
     a.card.mideast h2 { color: #f0825a; }
     a.card.mideast:hover { border-color: rgba(240,130,90,0.5); background: rgba(240,130,90,0.08); }
     a.card.ruua h2 { color: #e0685e; }
@@ -72,7 +74,7 @@
 <body>
   <div class="wrap">
     <h1>Live Maps</h1>
-    <div class="subtitle">Earthquakes, wildfires, disease outbreaks, natural hazards, weather radar, unrest, ship traffic, aircraft, submarine cables & electricity prices — live data</div>
+    <div class="subtitle">Earthquakes, wildfires, fire danger forecasts, disease outbreaks, natural hazards, weather radar, unrest, ship traffic, aircraft, submarine cables & electricity prices — live data</div>
     <div class="cards">
       <a class="card" href="world_earthquakes.html">
         <h2>World Map</h2>
@@ -85,6 +87,10 @@
       <a class="card fires" href="world_fires.html">
         <h2>World Wildfires</h2>
         <p>Live active-fire / thermal-anomaly detections worldwide (NASA FIRMS · VIIRS/MODIS), colored by fire intensity.</p>
+      </a>
+      <a class="card danger" href="fire_danger.html">
+        <h2>Fire Danger Forecast</h2>
+        <p>Copernicus GWIS Fire Weather Index — a 10-day forecast of fire danger risk (not detections), worldwide. No key needed.</p>
       </a>
       <a class="card mideast" href="mideast_fires.html">
         <h2>Middle East Fire Watch</h2>
@@ -133,6 +139,7 @@
     </div>
     <footer>
       Data: <a href="https://earthquake.usgs.gov/" target="_blank">USGS</a>
+      · <a href="https://gwis.jrc.ec.europa.eu/" target="_blank">Copernicus GWIS</a>
       · <a href="https://aisstream.io" target="_blank">aisstream.io</a>
       · <a href="https://www.gdeltproject.org/" target="_blank">GDELT</a>
       · <a href="https://opensky-network.org/" target="_blank">OpenSky Network</a>

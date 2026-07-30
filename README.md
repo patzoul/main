@@ -10,6 +10,7 @@ full list.
 - **[world_fires.html](world_fires.html)** — global active-fire / thermal-anomaly detections from [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/) (VIIRS / MODIS), colored by fire radiative power, with satellite/day-range/intensity filters. Requires a free FIRMS proxy (see below)
 - **[mideast_fires.html](mideast_fires.html)** — Middle East FIRMS fires overlaid on a curated list of major refineries / oil terminals, with **baseline change-detection**: a facility is flagged only when its current fire intensity spikes above its own recent baseline (so routine flaring stays quiet). Candidates, not confirmations. Uses the same FIRMS proxy
 - **[russia_ukraine_fires.html](russia_ukraine_fires.html)** — the same FIRMS + change-detection monitor over the Russia–Ukraine theatre, with a curated list of Russian & Ukrainian refineries / oil terminals. Uses the same FIRMS proxy
+- **[fire_danger.html](fire_danger.html)** — worldwide **fire danger forecast** (not detections) from [Copernicus GWIS](https://gwis.jrc.ec.europa.eu/) — the Canadian Fire Weather Index, driven by ECMWF weather forecasts, selectable today through +9 days. Served as WMS tiles with CORS already enabled — no key or proxy needed
 - **[ebola_africa.html](ebola_africa.html)** — the progress of Ebola virus disease (EVD) outbreaks across Africa from 1976 to the present, on a **playable timeline**: a **dual-handle time window** (start / end) selects the period shown — it opens on the latest outbreak (start = the 2026 epidemic's onset, end = today) and you drag either handle to widen back through history: year by year across the older record, then month by month near the present (the end handle can't move before the start). Outbreaks are sized by reported cases (log scale) and colored by virus species (Zaire / Sudan / Bundibugyo / Taï Forest). A **minimum-cases slider** (like the earthquake map's min-magnitude control) filters out smaller flare-ups to isolate the major epidemics. The running **active 2026 Central Africa epidemic** (Bundibugyo virus, DR Congo & Uganda) is broken out by province and highlighted. Curated from [CDC](https://www.cdc.gov/ebola/outbreaks/) & [WHO](https://www.who.int/) reporting; self-contained, no key required
 - **[unrest_events.html](unrest_events.html)** — global protest / strike / violent-unrest theme mentions from [GDELT](https://www.gdeltproject.org/)'s Global Knowledge Graph, colored by theme and by article tone, with a coarse-geocode filter to cut country-level noise. Candidates, not confirmations — see below. Requires the shared open-data proxy (see below)
 - **[natural_events.html](natural_events.html)** — active natural events worldwide from [NASA EONET](https://eonet.gsfc.nasa.gov/) (volcanoes, severe storms, floods, icebergs, etc.), colored by category with clickable type toggles and storm/iceberg tracks. No key required
@@ -39,6 +40,16 @@ server-side and adds CORS. The Worker code and one-time setup steps are in
 [`firms-proxy.js`](firms-proxy.js); once deployed, paste its URL into the map
 (stored only in `localStorage`). Everything is free — the FIRMS key and the
 Workers free tier both cost nothing.
+
+The fire danger forecast map (`ecmwf.fwi`, the Fire Weather Index) is served
+by [Copernicus GWIS](https://gwis.jrc.ec.europa.eu/) as WMS tiles, and unlike
+FIRMS/GDELT/OpenSky it **already sends `Access-Control-Allow-Origin: *`**, so
+it needs no proxy or key at all — the simplest data source in this repo. It
+does need one WMS quirk worked around: requesting `TIME=<today's date>`
+explicitly can return an empty tile if the browser's clock and GWIS's actual
+current forecast data don't line up exactly, so "Today" omits the `TIME`
+parameter entirely and lets the server resolve its own current default;
+only the +1d..+9d buttons pass an explicit date.
 
 The unrest map reads from GDELT — free and keyless, but it sends no CORS
 headers, so a browser can't call it directly. It goes through
