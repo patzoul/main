@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Unrest — GDELT</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="shared/theme.css">
+  <style>
+    :root { --accent: #e0a32e; --accent-rgb: 224, 163, 46; }
+
+    #panel { width: 264px; }
+
+    /* Setup form */
+    #setupForm { display: none; }
+    #setupForm p { font-size: 11px; color: #99a; line-height: 1.5; margin-bottom: 10px; }
+    #setupForm a { color: #e0a32e; }
+    #proxyInput {
+      width: 100%; padding: 7px 9px; font-size: 12px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(224,163,46,0.25);
+      border-radius: 6px; color: #dde; margin-bottom: 8px; outline: none;
+    }
+    #proxyInput:focus { border-color: #e0a32e; }
+    #connectBtn {
+      width: 100%; padding: 8px; font-size: 12px; font-weight: 700;
+      letter-spacing: 0.5px; text-transform: uppercase;
+      background: #e0a32e; color: #0d0d1a; border: none; border-radius: 6px; cursor: pointer;
+    }
+    #connectBtn:hover { background: #eab758; }
+    #setupForm .note { font-size: 10px; color: #556; margin-top: 8px; line-height: 1.5; }
+
+    /* Controls */
+    #controls { display: none; }
+    .theme-row {
+      display: flex; align-items: center; gap: 8px; padding: 3px 5px; margin: 0 -5px 2px;
+      border-radius: 4px; cursor: pointer; user-select: none; transition: background 0.12s;
+    }
+    .theme-row:hover { background: rgba(255,255,255,0.07); }
+    .theme-row.off { opacity: 0.35; }
+    .theme-row.off .theme-label { text-decoration: line-through; }
+    .theme-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; border: 1px solid rgba(255,255,255,0.25); }
+    .theme-label { font-size: 12px; color: #cdd; flex: 1; }
+    .theme-count { font-size: 11px; color: #778; }
+
+    .chk { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #aab; margin: 10px 0; cursor: pointer; user-select: none; }
+    .chk input { accent-color: #e0a32e; cursor: pointer; }
+
+    #stats .sub { color: #667; margin-top: 3px; }
+    #changeProxy { color: #5a7fa8; cursor: pointer; text-decoration: underline; font-size: 10px; }
+
+    .disclaimer {
+      font-size: 10px; color: #b3a05a; line-height: 1.5; margin-top: 10px;
+      padding: 8px 10px; background: rgba(224,163,46,0.06); border: 1px solid rgba(224,163,46,0.18); border-radius: 6px;
+    }
+
+    .legend { min-width: 165px; }
+
+    /* Non-blocking loading overlay — waits for a proxy URL before fetching. */
+    #loading {
+      position: absolute; inset: 0; background: rgba(10,10,25,0.55);
+      display: none; align-items: center; justify-content: center;
+      z-index: 1500; flex-direction: column; gap: 12px; pointer-events: none;
+    }
+    #loading.show { display: flex; }
+    .spinner {
+      width: 34px; height: 34px; border: 3px solid rgba(224,163,46,0.2);
+      border-top-color: #e0a32e; border-radius: 50%; animation: spin 0.9s linear infinite;
+    }
+    #loading p { color: #e0a32e; font-size: 12px; }
+
+    .leaflet-popup-content-wrapper {
+      background: rgba(255,255,255,0.97) !important; color: #222 !important;
+      border-radius: 8px !important;
+    }
+    .leaflet-tooltip::before { display: none !important; }
+    .tt-val.hot { color: #c0392b; }
+    .tt a { color: #3498db; }
+  </style>
+</head>
+<body>
+
+<div id="panel">
+  <h2>Global Unrest</h2>
+  <div class="subtitle">GDELT · protest / strike / unrest mentions</div>
+
+  <div class="status-row">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Not configured</span>
+  </div>
+
+  <div id="setupForm">
+    <p>
+      This map reads live theme mentions from
+      <a href="https://www.gdeltproject.org/" target="_blank">GDELT</a>'s
+      Global Knowledge Graph. GDELT blocks direct browser access, so it goes
+      through a small free proxy you deploy once. Paste your proxy
+      (Cloudflare Worker) URL:
+    </p>
+    <input type="text" id="proxyInput" placeholder="https://open-data-proxy.you.workers.dev" autocomplete="off" spellcheck="false">
+    <button id="connectBtn">Connect</button>
+    <div class="note">
+      Nothing sensitive is stored — GDELT needs no key at all, the proxy just
+      adds the CORS header a browser requires. The URL is kept only in this
+      browser's local storage. See <b>open-data-proxy.js</b> in the repo for
+      the Worker code &amp; setup steps.
+    </div>
+  </div>
+
+  <div id="controls">
+    <div id="themeToggles"></div>
+    <label class="chk"><input type="checkbox" id="coarseToggle"> Show country-level mentions</label>
+    <div id="stats">
+      Showing <b id="vis">—</b> of <b id="tot">—</b> mentions
+      <div class="sub" id="ts"></div>
+      <div class="sub" style="margin-top:6px"><span id="changeProxy">Change proxy URL</span></div>
+    </div>
+    <div class="disclaimer">
+      Each dot is a place <em>mentioned</em> in an article discussing these
+      themes — not a confirmed on-the-ground event. One article can geocode
+      to several places (e.g. countries named in passing). Candidates, not
+      confirmations — verify with reporting.
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <h4>Theme</h4>
+  <div class="leg-row"><div class="leg-dot" style="background:#5dade2"></div><span class="leg-txt">Protest</span></div>
+  <div class="leg-row"><div class="leg-dot" style="background:#e67e22"></div><span class="leg-txt">Strike</span></div>
+  <div class="leg-row"><div class="leg-dot" style="background:#e74c3c"></div><span class="leg-txt">Violent unrest</span></div>
+  <div class="leg-note">Darker/larger dots had a more negative article tone.</div>
+</div>
+
+<div id="loading"><div class="spinner"></div><p>Loading unrest mentions…</p></div>
+<div id="map"></div>
+
+<script>
+  const map = L.map('map', { preferCanvas: true, zoomControl: true, worldCopyJump: true })
+               .setView([20, 10], 2);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CartoDB</a> | Data: <a href="https://www.gdeltproject.org/" style="color:#e0a32e">GDELT</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(map);
+
+  const KEY = 'open_data_proxy_url';
+  const REFRESH_MS = 10 * 60 * 1000; // matches the Worker's 10-min GDELT cache
+
+  const THEMES = {
+    PROTEST:        { label: 'Protest',        color: '#5dade2', on: true },
+    STRIKE:         { label: 'Strike',         color: '#e67e22', on: true },
+    VIOLENT_UNREST: { label: 'Violent unrest', color: '#e74c3c', on: true },
+  };
+
+  let allFeatures = []; // { lat, lon, theme, name, tone, url, coarse }
+  let showCoarse = false;
+  const layerGroup = L.layerGroup().addTo(map);
+  let refreshTimer = null;
+
+  function setStatus(state, text) {
+    document.getElementById('statusDot').className = 'status-dot ' + state;
+    document.getElementById('statusText').textContent = text;
+  }
+
+  // GDELT gives no article title, only the URL — guess a readable title from
+  // the slug (the common "/some-readable-slug" segment most news CMSs use).
+  function guessTitle(url) {
+    try {
+      const path = new URL(url).pathname.split('/').filter(Boolean);
+      const slug = path.sort((a, b) => b.length - a.length)[0] || '';
+      const words = slug.replace(/\.\w+$/, '').split(/[-_]+/).filter(w => w.length > 1 && !/^\d+$/.test(w));
+      if (words.length < 3) return null;
+      return words.map(w => w[0].toUpperCase() + w.slice(1)).join(' ');
+    } catch { return null; }
+  }
+
+  function toneLabel(tone) {
+    if (tone <= -5) return { text: 'very negative', cls: 'hot' };
+    if (tone <= -2) return { text: 'negative', cls: '' };
+    if (tone >= 2) return { text: 'positive', cls: '' };
+    return { text: 'neutral', cls: '' };
+  }
+
+  function popupHtml(f) {
+    const t = toneLabel(f.tone);
+    const title = guessTitle(f.url);
+    return `<div class="tt">
+      <div class="tt-place">${f.name}</div>
+      <div class="tt-grid">
+        <span class="tt-key">Theme</span><span class="tt-val" style="color:${THEMES[f.theme].color}">${THEMES[f.theme].label}</span>
+        <span class="tt-key">Article tone</span><span class="tt-val ${t.cls}">${t.text} (${f.tone.toFixed(1)})</span>
+      </div>
+      ${title ? `<div style="margin-top:6px;font-size:11px;color:#444;line-height:1.35">${title}</div>` : ''}
+      <div style="padding-top:7px;font-size:10px"><a href="${f.url}" target="_blank">Read source article ↗</a></div>
+    </div>`;
+  }
+
+  function buildToggles() {
+    const box = document.getElementById('themeToggles');
+    box.innerHTML = '';
+    Object.entries(THEMES).forEach(([id, info]) => {
+      const count = allFeatures.filter(f => f.theme === id).length;
+      const row = document.createElement('div');
+      row.className = 'theme-row' + (info.on ? '' : ' off');
+      row.innerHTML = `<span class="theme-dot" style="background:${info.color}"></span><span class="theme-label">${info.label}</span><span class="theme-count">${count.toLocaleString()}</span>`;
+      row.addEventListener('click', () => {
+        info.on = !info.on;
+        row.classList.toggle('off', !info.on);
+        render();
+      });
+      box.appendChild(row);
+    });
+  }
+
+  function render() {
+    layerGroup.clearLayers();
+    const filtered = allFeatures.filter(f => THEMES[f.theme].on && (showCoarse || !f.coarse));
+    filtered.forEach(f => {
+      const intensity = Math.min(1, Math.abs(Math.min(f.tone, 0)) / 10); // 0..1, more negative = more prominent
+      const m = L.circleMarker([f.lat, f.lon], {
+        radius: 4 + intensity * 3,
+        fillColor: THEMES[f.theme].color,
+        color: 'rgba(0,0,0,0.5)', weight: 0.5,
+        fillOpacity: 0.55 + intensity * 0.35, opacity: 1
+      });
+      m.bindTooltip(() => popupHtml(f), { sticky: true, opacity: 1 });
+      m.bindPopup(() => popupHtml(f));
+      layerGroup.addLayer(m);
+    });
+    document.getElementById('vis').textContent = filtered.length.toLocaleString();
+    document.getElementById('tot').textContent = allFeatures.length.toLocaleString();
+    buildToggles();
+  }
+
+  function parseFeatures(theme, geojson) {
+    const seen = new Set();
+    const out = [];
+    (geojson.features || []).forEach(f => {
+      if (!f.geometry || f.geometry.type !== 'Point') return;
+      const [lon, lat] = f.geometry.coordinates;
+      const p = f.properties || {};
+      const name = p.name || 'Unknown location';
+      // A name with no comma is typically a bare country/region centroid —
+      // the coarsest, noisiest geocode GDELT emits.
+      const coarse = !name.includes(',');
+      const latK = Math.round(lat * 10) / 10, lonK = Math.round(lon * 10) / 10;
+      const key = `${theme}:${latK}:${lonK}:${p.url || ''}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push({ lat, lon, theme, name, tone: p.urltone || 0, url: p.url || '#', coarse });
+    });
+    return out;
+  }
+
+  function fetchData() {
+    const proxy = localStorage.getItem(KEY);
+    if (!proxy) return;
+    const sep = proxy.includes('?') ? '&' : '?';
+    document.getElementById('loading').classList.add('show');
+    setStatus('connecting', 'Loading…');
+
+    const themeIds = Object.keys(THEMES);
+    Promise.allSettled(themeIds.map(theme =>
+      fetch(`${proxy}${sep}target=gdelt&theme=${theme}&maxrows=250`).then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      }).then(geojson => parseFeatures(theme, geojson))
+    )).then(results => {
+      document.getElementById('loading').classList.remove('show');
+      const ok = results.filter(r => r.status === 'fulfilled');
+      if (ok.length === 0) {
+        setStatus('error', 'Proxy/GDELT error');
+        document.getElementById('ts').textContent = String(results[0].reason).slice(0, 120);
+        return;
+      }
+      allFeatures = ok.flatMap(r => r.value);
+      setStatus('live', ok.length === themeIds.length ? 'Live' : `Live (${ok.length}/${themeIds.length} themes)`);
+      document.getElementById('ts').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+      render();
+    });
+  }
+
+  function showSetup() {
+    document.getElementById('setupForm').style.display = 'block';
+    document.getElementById('controls').style.display = 'none';
+    setStatus('warn', 'Not configured');
+    document.getElementById('statusDot').className = 'status-dot';
+    clearInterval(refreshTimer);
+  }
+  function showControls() {
+    document.getElementById('setupForm').style.display = 'none';
+    document.getElementById('controls').style.display = 'block';
+  }
+
+  function init() {
+    if (localStorage.getItem(KEY)) {
+      showControls();
+      fetchData();
+      refreshTimer = setInterval(fetchData, REFRESH_MS);
+    } else {
+      showSetup();
+    }
+  }
+
+  document.getElementById('connectBtn').addEventListener('click', () => {
+    const v = document.getElementById('proxyInput').value.trim();
+    if (!/^https?:\/\//.test(v)) { alert('Enter a full URL starting with https://'); return; }
+    localStorage.setItem(KEY, v.replace(/\/+$/, ''));
+    showControls();
+    fetchData();
+    refreshTimer = setInterval(fetchData, REFRESH_MS);
+  });
+  document.getElementById('proxyInput').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('connectBtn').click(); });
+
+  document.getElementById('changeProxy').addEventListener('click', () => {
+    localStorage.removeItem(KEY);
+    layerGroup.clearLayers();
+    allFeatures = [];
+    document.getElementById('proxyInput').value = '';
+    showSetup();
+  });
+
+  document.getElementById('coarseToggle').addEventListener('change', e => {
+    showCoarse = e.target.checked;
+    render();
+  });
+
+  init();
+</script>
+</body>
+</html>

@@ -11,10 +11,12 @@ full list.
 - **[mideast_fires.html](mideast_fires.html)** — Middle East FIRMS fires overlaid on a curated list of major refineries / oil terminals, with **baseline change-detection**: a facility is flagged only when its current fire intensity spikes above its own recent baseline (so routine flaring stays quiet). Candidates, not confirmations. Uses the same FIRMS proxy
 - **[russia_ukraine_fires.html](russia_ukraine_fires.html)** — the same FIRMS + change-detection monitor over the Russia–Ukraine theatre, with a curated list of Russian & Ukrainian refineries / oil terminals. Uses the same FIRMS proxy
 - **[ebola_africa.html](ebola_africa.html)** — the progress of Ebola virus disease (EVD) outbreaks across Africa from 1976 to the present, on a **playable timeline**: a **dual-handle time window** (start / end) selects the period shown — it opens on the latest outbreak (start = the 2026 epidemic's onset, end = today) and you drag either handle to widen back through history: year by year across the older record, then month by month near the present (the end handle can't move before the start). Outbreaks are sized by reported cases (log scale) and colored by virus species (Zaire / Sudan / Bundibugyo / Taï Forest). A **minimum-cases slider** (like the earthquake map's min-magnitude control) filters out smaller flare-ups to isolate the major epidemics. The running **active 2026 Central Africa epidemic** (Bundibugyo virus, DR Congo & Uganda) is broken out by province and highlighted. Curated from [CDC](https://www.cdc.gov/ebola/outbreaks/) & [WHO](https://www.who.int/) reporting; self-contained, no key required
+- **[unrest_events.html](unrest_events.html)** — global protest / strike / violent-unrest theme mentions from [GDELT](https://www.gdeltproject.org/)'s Global Knowledge Graph, colored by theme and by article tone, with a coarse-geocode filter to cut country-level noise. Candidates, not confirmations — see below. Requires the shared open-data proxy (see below)
 - **[natural_events.html](natural_events.html)** — active natural events worldwide from [NASA EONET](https://eonet.gsfc.nasa.gov/) (volcanoes, severe storms, floods, icebergs, etc.), colored by category with clickable type toggles and storm/iceberg tracks. No key required
 - **[weather_radar.html](weather_radar.html)** — animated global precipitation radar from [RainViewer](https://www.rainviewer.com/) (past ~2 h, playable loop with timeline scrub and opacity control). No key required
 - **[malacca_ships.html](malacca_ships.html)** — live ship traffic in the Strait of Malacca via [aisstream.io](https://aisstream.io) AIS data
 - **[world_ships.html](world_ships.html)** — live worldwide ship traffic (whole-globe AIS) via [aisstream.io](https://aisstream.io), rendered as lightweight canvas dots colored by vessel type
+- **[world_aircraft.html](world_aircraft.html)** — live worldwide aircraft positions from the [OpenSky Network](https://opensky-network.org/), colored by altitude band (ground / low / mid / cruise). Requires the shared open-data proxy (see below)
 - **[submarine_cables.html](submarine_cables.html)** — global submarine cable routes, landing points, and documented damage incidents (2024–2025), data from [TeleGeography](https://www.submarinecablemap.com)
 - **[electricity_map.html](electricity_map.html)** — world heatmap of average residential electricity price by country, with a live generation-mix breakdown (coal, gas, nuclear, hydro, wind, solar…) on hover
 
@@ -37,6 +39,21 @@ server-side and adds CORS. The Worker code and one-time setup steps are in
 [`firms-proxy.js`](firms-proxy.js); once deployed, paste its URL into the map
 (stored only in `localStorage`). Everything is free — the FIRMS key and the
 Workers free tier both cost nothing.
+
+The unrest and aircraft maps read from GDELT and the OpenSky Network — both
+free and keyless, but neither sends CORS headers, so a browser can't call them
+directly. They go through [`open-data-proxy.js`](open-data-proxy.js), a second
+**free Cloudflare Worker** that just adds CORS and edge-caches the response
+(GDELT for 10 min, OpenSky for 5 min — long enough to stay comfortably under
+OpenSky's 400-request/day anonymous quota regardless of how many people load
+the map). Unlike `firms-proxy.js` it holds no secret — there's no key to
+protect, only an allowlist of upstream targets. Deploy it once the same way
+(Cloudflare Workers & Pages → Create → Worker → paste the file's contents →
+Deploy) and paste its URL into either map (stored only in `localStorage`).
+GDELT's unrest data is theme-mention geocoding, not a curated event database:
+one article can geocode to several places (e.g. a country named only in
+passing), so country-level ("coarse") mentions are hidden by default — toggle
+them back on if you want the raw feed.
 
 The two "fire watch" maps (Middle East, Russia–Ukraine) add **baseline
 change-detection**: for each refinery/terminal they compare the current fire

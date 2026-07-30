@@ -43,6 +43,8 @@
     a.card.mideast:hover { border-color: rgba(240,130,90,0.5); background: rgba(240,130,90,0.08); }
     a.card.ruua h2 { color: #e0685e; }
     a.card.ruua:hover { border-color: rgba(224,104,94,0.5); background: rgba(224,104,94,0.08); }
+    a.card.unrest h2 { color: #e0a32e; }
+    a.card.unrest:hover { border-color: rgba(224,163,46,0.5); background: rgba(224,163,46,0.08); }
     a.card.ebola h2 { color: #e07a5f; }
     a.card.ebola:hover { border-color: rgba(224,122,95,0.5); background: rgba(224,122,95,0.08); }
     a.card.hazards h2 { color: #7ec8f7; }
@@ -54,6 +56,8 @@
     a.card.worldships h2 { color: #6ee7b7; }
     a.card.worldships:hover { border-color: rgba(110,231,183,0.5); background: rgba(110,231,183,0.08); }
     a.card.worldships { grid-column: 1 / -1; }
+    a.card.aircraft h2 { color: #4ecdc4; }
+    a.card.aircraft:hover { border-color: rgba(78,205,196,0.5); background: rgba(78,205,196,0.08); }
     a.card.cables h2 { color: #b39ddb; }
     a.card.cables:hover { border-color: rgba(179,157,219,0.5); background: rgba(179,157,219,0.08); }
     a.card.cables { grid-column: 1 / -1; }
@@ -68,7 +72,7 @@
 <body>
   <div class="wrap">
     <h1>Live Maps</h1>
-    <div class="subtitle">Earthquakes, wildfires, disease outbreaks, natural hazards, weather radar, ship traffic, submarine cables & electricity prices — live data</div>
+    <div class="subtitle">Earthquakes, wildfires, disease outbreaks, natural hazards, weather radar, unrest, ship traffic, aircraft, submarine cables & electricity prices — live data</div>
     <div class="cards">
       <a class="card" href="world_earthquakes.html">
         <h2>World Map</h2>
@@ -90,6 +94,10 @@
         <h2>Russia–Ukraine Fire Watch</h2>
         <p>Same FIRMS + baseline change-detection over the Russia–Ukraine theatre, flagging refineries/terminals whose fire activity spikes above their norm.</p>
       </a>
+      <a class="card unrest" href="unrest_events.html">
+        <h2>Global Unrest</h2>
+        <p>Protest / strike / violent-unrest theme mentions worldwide (GDELT) — candidates, not confirmations. Requires a free proxy, stored only in your browser.</p>
+      </a>
       <a class="card ebola" href="ebola_africa.html">
         <h2>Ebola in Africa</h2>
         <p>Progress of Ebola virus disease outbreaks across Africa (1976–2026) — a playable timeline with a minimum-cases filter, sized by cases and colored by virus species, with the active 2026 epidemic highlighted. Data: CDC / WHO.</p>
@@ -110,6 +118,10 @@
         <h2>World Ship Traffic</h2>
         <p>Live AIS positions of vessels worldwide — requires a free aisstream.io API key, stored only in your browser.</p>
       </a>
+      <a class="card aircraft" href="world_aircraft.html">
+        <h2>Live Aircraft</h2>
+        <p>Worldwide ADS-B aircraft positions (OpenSky Network), colored by altitude band. Requires a free proxy, stored only in your browser.</p>
+      </a>
       <a class="card cables" href="submarine_cables.html">
         <h2>Submarine Cable Map</h2>
         <p>Global undersea cable routes and landing points, with documented damage incidents from 2024–2025.</p>
@@ -122,6 +134,8 @@
     <footer>
       Data: <a href="https://earthquake.usgs.gov/" target="_blank">USGS</a>
       · <a href="https://aisstream.io" target="_blank">aisstream.io</a>
+      · <a href="https://www.gdeltproject.org/" target="_blank">GDELT</a>
+      · <a href="https://opensky-network.org/" target="_blank">OpenSky Network</a>
       · <a href="https://www.cdc.gov/ebola/outbreaks/" target="_blank">CDC</a>
       · <a href="https://www.who.int/" target="_blank">WHO</a>
       · <a href="https://ourworldindata.org/electricity-mix" target="_blank">Our World in Data</a>
