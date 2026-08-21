@@ -58,6 +58,12 @@
          margin-right: 7px; vertical-align: 1px; animation: pulse 1s infinite; }
   @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
   .hint { font-size: 11px; color: var(--text-dim); margin-top: 12px; line-height: 1.5; }
+  label.flag {
+    display: flex; align-items: flex-start; gap: 9px; cursor: pointer;
+    font-size: 12px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.5;
+  }
+  label.flag input { accent-color: var(--accent); margin-top: 2px; flex-shrink: 0; }
+  label.flag span small { display: block; color: var(--text-dim); font-size: 11px; }
   select {
     font-family: inherit; font-size: 12px; color: var(--text-muted);
     background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
@@ -95,8 +101,9 @@
   .top .native { font-size: 16px; color: var(--accent); }
   .top .code { font-size: 11px; color: var(--text-dim); font-family: ui-monospace, Menlo, Consolas, monospace;
                border: 1px solid rgba(255,255,255,0.12); border-radius: 5px; padding: 2px 6px; }
-  .top-conf { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+  .top-conf { font-size: 12px; color: var(--text-muted); margin-bottom: 6px; }
   .top-conf b { color: var(--accent); }
+  #diag { font-size: 11px; color: var(--text-dim); margin-bottom: 16px; line-height: 1.5; }
   .cand { display: grid; grid-template-columns: 130px 1fr 46px; gap: 10px; align-items: center;
           font-size: 12px; color: var(--text-muted); margin-bottom: 7px; }
   .cand .cbar { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.07); overflow: hidden; }
@@ -154,6 +161,12 @@
 
   <div class="card">
     <h2>2 · Detect</h2>
+    <label class="flag">
+      <input type="checkbox" id="speechOnly" checked>
+      <span>Conversation only
+        <small>Drop music, background noise and silence first, and ignore any window Whisper
+        itself hears no speech in. Untick to judge the whole clip as-is.</small></span>
+    </label>
     <div class="row">
       <button id="detectBtn" class="primary" disabled>Detect language</button>
       <button id="transcribeBtn" disabled>Transcribe clip</button>
@@ -167,6 +180,7 @@
         <span class="code" id="topCode"></span>
       </div>
       <div class="top-conf" id="topConf"></div>
+      <div id="diag"></div>
       <div id="cands"></div>
       <div id="transcript" hidden><h2>Transcript</h2><p id="transcriptText"></p></div>
     </div>
@@ -309,6 +323,8 @@ let recorder = null, recStream = null, recStart = 0, recTicker = null;
 let audioCtx = null, playing = null;
 let loaded = null;     // { repo, tokenizer, processor, model }
 let detected = null;   // top language code
+let lastScores = null; // per-block speech scores of the current clip, once scored
+let speechBuf = null;  // the clip with only its speech-like blocks kept
 
 /* ------------------------------ status ---------------------------- */
 function status(text, pct) {
@@ -377,6 +393,169 @@ function rms(buf, from, to) {
   return Math.sqrt(s / Math.max(1, to - from));
 }
 
+/* ------------------- speech vs. music, noise, silence ---------------
+ * With "conversation only" ticked, one-second blocks are scored on how
+ * speech-like they are and the rest is thrown away before Whisper sees the
+ * audio. The cues are the classic speech/music discriminators:
+ *   · band ratio     — share of energy in the 300–3400 Hz speech band
+ *   · flatness swing — speech alternates voiced (tonal) and unvoiced (noisy)
+ *                      frames, so its spectral flatness varies a lot; music
+ *                      and steady noise are far more constant
+ *   · syllable rate  — energy-envelope modulation in the 2–8 Hz band
+ *   · pauses         — speech leaves gaps between words; music fills them
+ * This score only ranks and discards the obvious; the authoritative gate is
+ * Whisper's own <|nospeech|> probability, read from the same forward pass
+ * that does the language ID (see langProbs).
+ */
+const FRAME = 512, HOP = 256;          // 32 ms window, 16 ms hop at 16 kHz
+const FRAMES_PER_BLOCK = 64;           // ≈ 1.02 s of audio per scored block
+const BLOCK = FRAMES_PER_BLOCK * HOP;
+const SPEECH_MIN = 0.45;               // block score at which we call it speech
+const SILENCE_RMS = 0.003;             // ≈ −50 dBFS: below this a block holds nothing
+const NO_SPEECH_MAX = 0.6;             // Whisper no-speech probability we refuse
+
+const clamp01 = v => (v < 0 ? 0 : v > 1 ? 1 : v);
+let hannWin = null;
+
+/** In-place iterative radix-2 FFT; n must be a power of two. */
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) {
+    let bit = n >> 1;
+    for (; j & bit; bit >>= 1) j ^= bit;
+    j ^= bit;
+    if (i < j) {
+      const tr = re[i]; re[i] = re[j]; re[j] = tr;
+      const ti = im[i]; im[i] = im[j]; im[j] = ti;
+    }
+  }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -2 * Math.PI / len, wr = Math.cos(ang), wi = Math.sin(ang), half = len >> 1;
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < half; k++) {
+        const ur = re[i + k], ui = im[i + k];
+        const vr = re[i + k + half] * cr - im[i + k + half] * ci;
+        const vi = re[i + k + half] * ci + im[i + k + half] * cr;
+        re[i + k] = ur + vr; im[i + k] = ui + vi;
+        re[i + k + half] = ur - vr; im[i + k + half] = ui - vi;
+        const nr = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = nr;
+      }
+    }
+  }
+}
+
+/** Per-frame RMS, speech-band energy share and spectral flatness. */
+function frameFeatures(buf) {
+  const n = Math.max(0, Math.floor((buf.length - FRAME) / HOP) + 1);
+  const energy = new Float32Array(n), band = new Float32Array(n), flat = new Float32Array(n);
+  if (!hannWin) {
+    hannWin = new Float32Array(FRAME);
+    for (let i = 0; i < FRAME; i++) hannWin[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (FRAME - 1));
+  }
+  const re = new Float32Array(FRAME), im = new Float32Array(FRAME);
+  const binHz = SR / FRAME, lo = Math.round(300 / binHz), hi = Math.round(3400 / binHz), top = FRAME >> 1;
+  for (let f = 0; f < n; f++) {
+    const off = f * HOP;
+    let e = 0;
+    for (let i = 0; i < FRAME; i++) {
+      const v = buf[off + i];
+      e += v * v; re[i] = v * hannWin[i]; im[i] = 0;
+    }
+    energy[f] = Math.sqrt(e / FRAME);
+    fft(re, im);
+    let tot = 0, inBand = 0, logSum = 0;
+    for (let k = 1; k < top; k++) {
+      const pw = re[k] * re[k] + im[k] * im[k];
+      tot += pw;
+      if (k >= lo && k <= hi) inBand += pw;
+      logSum += Math.log(pw + 1e-12);
+    }
+    band[f] = tot > 0 ? inBand / tot : 0;
+    const geo = Math.exp(logSum / (top - 1)), arith = tot / (top - 1);
+    flat[f] = arith > 0 ? Math.min(1, geo / arith) : 1;
+  }
+  return { energy, band, flat };
+}
+
+/** A 0–1 speech likelihood for every ~1 s block of the clip. */
+function speechScores(buf) {
+  const { energy, band, flat } = frameFeatures(buf);
+  const blocks = Math.max(1, Math.ceil(energy.length / FRAMES_PER_BLOCK));
+  const fps = SR / HOP;
+  let peak = 0;
+  for (let i = 0; i < energy.length; i++) if (energy[i] > peak) peak = energy[i];
+  const out = new Float32Array(blocks);
+
+  for (let b = 0; b < blocks; b++) {
+    const s0 = b * FRAMES_PER_BLOCK, s1 = Math.min(s0 + FRAMES_PER_BLOCK, energy.length), len = s1 - s0;
+    if (len < FRAMES_PER_BLOCK / 2) { out[b] = 0; continue; }
+
+    let mean = 0;
+    for (let i = s0; i < s1; i++) mean += energy[i];
+    mean /= len;
+    // Silence, both absolutely and relative to the loudest part of this clip —
+    // the absolute floor is what catches a recording that is silent throughout.
+    if (mean < SILENCE_RMS || mean < peak * 0.06) { out[b] = 0; continue; }
+
+    let bandMean = 0, flatMean = 0, quiet = 0;
+    for (let i = s0; i < s1; i++) {
+      bandMean += band[i]; flatMean += flat[i];
+      if (energy[i] < mean * 0.5) quiet++;
+    }
+    bandMean /= len; flatMean /= len;
+
+    let flatVar = 0, envVar = 0;
+    for (let i = s0; i < s1; i++) {
+      flatVar += (flat[i] - flatMean) ** 2;
+      envVar += (energy[i] - mean) ** 2;
+    }
+    const flatSd = Math.sqrt(flatVar / len), envSd = Math.sqrt(envVar / len) || 1e-9;
+
+    // Strongest envelope modulation anywhere in the syllable band (2–8 Hz).
+    let mod = 0;
+    for (let hz = 2; hz <= 8; hz++) {
+      let cr = 0, ci = 0;
+      for (let i = s0; i < s1; i++) {
+        const t = (i - s0) / fps, v = energy[i] - mean;
+        cr += v * Math.cos(2 * Math.PI * hz * t);
+        ci += v * Math.sin(2 * Math.PI * hz * t);
+      }
+      mod = Math.max(mod, 2 * Math.sqrt(cr * cr + ci * ci) / len);
+    }
+
+    out[b] = 0.40 * clamp01((bandMean - 0.25) / 0.45)
+           + 0.25 * clamp01(flatSd / 0.08)
+           + 0.20 * clamp01((mod / envSd) / 0.6)
+           + 0.15 * clamp01((quiet / len) / 0.35);
+  }
+  return out;
+}
+
+/**
+ * Concatenate the speech-like blocks. If nothing clears SPEECH_MIN we don't
+ * give up — a quiet or unusual recording shouldn't be refused outright — but
+ * hand Whisper the most speech-like third of the audio and let its own
+ * no-speech probability make the call. Only an entirely silent clip returns
+ * no audio at all.
+ */
+function speechOnlyAudio(buf) {
+  const scores = speechScores(buf);
+  let keep = [], relaxed = false;
+  for (let b = 0; b < scores.length; b++) if (scores[b] >= SPEECH_MIN) keep.push(b);
+  if (!keep.length) {
+    const audible = [];
+    for (let b = 0; b < scores.length; b++) if (scores[b] > 0) audible.push(b);
+    audible.sort((a, b) => scores[b] - scores[a]);
+    keep = audible.slice(0, Math.max(1, Math.ceil(scores.length / 3))).sort((a, b) => a - b);
+    relaxed = keep.length > 0;
+  }
+  if (!keep.length) return { buf: null, scores, kept: 0, total: scores.length, relaxed: false };
+  const out = new Float32Array(keep.length * BLOCK);
+  keep.forEach((b, i) => out.set(buf.subarray(b * BLOCK, Math.min((b + 1) * BLOCK, buf.length)), i * BLOCK));
+  return { buf: out, scores, kept: keep.length, total: scores.length, relaxed };
+}
+
 /** Up to MAX_WINDOWS evenly spaced 30 s windows, skipping near-silent ones. */
 function pickWindows(buf) {
   if (buf.length <= WINDOW) return [buf];
@@ -393,19 +572,24 @@ function pickWindows(buf) {
 }
 
 /* ------------------------------ waveform -------------------------- */
-function drawWave(buf) {
+function drawWave(buf, scores) {
   const c = $('wave'), dpr = window.devicePixelRatio || 1;
   const w = c.clientWidth, h = c.clientHeight;
   c.width = w * dpr; c.height = h * dpr;
   const g = c.getContext('2d');
   g.scale(dpr, dpr);
   g.clearRect(0, 0, w, h);
-  g.fillStyle = 'rgba(239,127,158,0.75)';
   const cols = Math.max(1, Math.floor(w / 2)), per = Math.floor(buf.length / cols) || 1;
   for (let x = 0; x < cols; x++) {
     let peak = 0;
     for (let i = x * per; i < (x + 1) * per && i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i]));
     const bh = Math.max(1, peak * (h - 6));
+    if (scores) {
+      const b = Math.min(scores.length - 1, Math.floor((x * per) / BLOCK));
+      g.fillStyle = scores[b] >= SPEECH_MIN ? 'rgba(239,127,158,0.85)' : 'rgba(255,255,255,0.13)';
+    } else {
+      g.fillStyle = 'rgba(239,127,158,0.75)';
+    }
     g.fillRect(x * 2, (h - bh) / 2, 1.2, bh);
   }
 }
@@ -415,6 +599,7 @@ function showClip(name) {
   $('clip').className = 'on';
   $('clipDur').textContent = (pcm.length / SR).toFixed(1) + ' s';
   $('clipSrc').textContent = name;
+  lastScores = null; speechBuf = null;
   drawWave(pcm);
   detectBtn.disabled = false;
   transcribeBtn.disabled = false;
@@ -536,16 +721,19 @@ function tokenIds(tokenizer) {
     const id = byName.get(token);
     return typeof id === 'number' ? id : fallback;
   };
+  const noSpeech = byName.get('<|nospeech|>') ?? byName.get('<|nocaptions|>');
   return {
     sot: lookup('<|startoftranscript|>', SOT_FALLBACK_ID),
-    langs: LANGS.map((l, i) => lookup('<|' + l.code + '|>', LANG_FALLBACK_BASE + i))
+    langs: LANGS.map((l, i) => lookup('<|' + l.code + '|>', LANG_FALLBACK_BASE + i)),
+    noSpeech: typeof noSpeech === 'number' ? noSpeech : null
   };
 }
 
 /**
  * One forward pass with only <|startoftranscript|> in the decoder: the next-token
- * distribution over the <|xx|> tokens *is* Whisper's language identifier.
- * Returns probabilities aligned with LANGS.
+ * distribution over the <|xx|> tokens *is* Whisper's language identifier, and the
+ * probability of <|nospeech|> at the same position is Whisper's own verdict on
+ * whether this window contains speech at all. Returns both.
  */
 async function langProbs(chunk) {
   const { Tensor } = await lib();
@@ -556,11 +744,23 @@ async function langProbs(chunk) {
   const vocab = logits.dims.at(-1);
   const row = logits.data.length - vocab;   // last (and only) decoder position
 
+  // Language: softmax restricted to the <|xx|> tokens, the way Whisper does it.
   let max = -Infinity;
   for (const id of ids.langs) max = Math.max(max, logits.data[row + id]);
   const exp = ids.langs.map(id => Math.exp(logits.data[row + id] - max));
   const sum = exp.reduce((a, b) => a + b, 0);
-  return exp.map(v => v / sum);
+  const probs = exp.map(v => v / sum);
+
+  // No-speech: softmax over the whole vocabulary at that same position.
+  let noSpeech = null;
+  if (ids.noSpeech != null) {
+    let vmax = -Infinity;
+    for (let i = 0; i < vocab; i++) if (logits.data[row + i] > vmax) vmax = logits.data[row + i];
+    let vsum = 0;
+    for (let i = 0; i < vocab; i++) vsum += Math.exp(logits.data[row + i] - vmax);
+    noSpeech = Math.exp(logits.data[row + ids.noSpeech] - vmax) / vsum;
+  }
+  return { probs, noSpeech };
 }
 
 /** Fallback: let generate() do the detection, giving a winner but no distribution. */
@@ -572,7 +772,7 @@ async function langByGenerate(chunk) {
   const probs = LANGS.map(() => 0);
   for (const tok of seq) {
     const idx = ids.langs.indexOf(tok);
-    if (idx >= 0) { probs[idx] = 1; return probs; }
+    if (idx >= 0) { probs[idx] = 1; return { probs, noSpeech: null }; }
   }
   throw new Error('the model did not return a language token');
 }
@@ -580,28 +780,75 @@ async function langByGenerate(chunk) {
 /* ------------------------------ actions --------------------------- */
 detectBtn.onclick = async () => {
   detectBtn.disabled = transcribeBtn.disabled = true;
+  const speechOnly = $('speechOnly').checked;
   try {
+    // Stage 1 — throw away everything that doesn't look like conversation. This
+    // runs before the model is fetched: it is local and instant, so a silent
+    // clip fails without anyone waiting on a download.
+    let source = pcm, kept = null;
+    speechBuf = null;
+    if (speechOnly) {
+      status('Looking for speech…');
+      const found = speechOnlyAudio(pcm);
+      lastScores = found.scores;
+      drawWave(pcm, lastScores);
+      if (!found.buf) {
+        fail('Nothing to analyse — this clip is silent, or far too quiet to hear. ' +
+             'Untick “Conversation only” to feed it to the model anyway.');
+        return;
+      }
+      source = speechBuf = found.buf;
+      kept = found;
+    } else {
+      lastScores = null;
+      drawWave(pcm);
+    }
+
+    // Stage 2 — Whisper, which gets the final say on whether it heard speech.
     await ensureModel(modelSel.value);
-    const windows = pickWindows(pcm);
+    const windows = pickWindows(source);
     const total = LANGS.map(() => 0);
+    let weight = 0, used = 0, skipped = 0, nsSum = 0, nsSeen = 0;
+
     for (let i = 0; i < windows.length; i++) {
       status(windows.length > 1 ? `Analysing window ${i + 1} of ${windows.length}…` : 'Analysing audio…',
              i / windows.length);
-      let probs;
-      try { probs = await langProbs(windows[i]); }
-      catch (e) { console.warn('logit read failed, falling back to generate()', e); probs = await langByGenerate(windows[i]); }
-      for (let j = 0; j < total.length; j++) total[j] += probs[j] / windows.length;
+      let res;
+      try { res = await langProbs(windows[i]); }
+      catch (e) { console.warn('logit read failed, falling back to generate()', e); res = await langByGenerate(windows[i]); }
+
+      const ns = res.noSpeech;
+      if (ns != null) { nsSum += ns; nsSeen++; }
+      if (speechOnly && ns != null && ns > NO_SPEECH_MAX) { skipped++; continue; }
+
+      const w = speechOnly && ns != null ? 1 - ns : 1;   // trust speech-heavy windows more
+      for (let j = 0; j < total.length; j++) total[j] += res.probs[j] * w;
+      weight += w;
+      used++;
     }
-    render(total);
+
+    if (!used || weight <= 0) {
+      fail('No conversation found — Whisper heard no speech in ' +
+           (skipped === 1 ? 'the window it was given' : `any of the ${skipped} windows`) + '. ' +
+           'Untick “Conversation only” to detect anyway.');
+      return;
+    }
+
+    render(total.map(v => v / weight), {
+      speechOnly, used, skipped, kept,
+      speech: nsSeen ? 1 - nsSum / nsSeen : null,
+      clipSeconds: pcm.length / SR
+    });
     clearStatus();
   } catch (e) {
     console.error(e);
     fail('Detection failed: ' + e.message + '. The model is fetched from huggingface.co via jsDelivr — check the network tab if this page is behind a proxy or offline on first run.');
+  } finally {
+    detectBtn.disabled = transcribeBtn.disabled = false;
   }
-  detectBtn.disabled = transcribeBtn.disabled = false;
 };
 
-function render(probs) {
+function render(probs, info) {
   const ranked = LANGS.map((l, i) => ({ ...l, p: probs[i] })).sort((a, b) => b.p - a.p);
   const top = ranked[0];
   detected = top.code;
@@ -611,6 +858,21 @@ function render(probs) {
   const margin = top.p - ranked[1].p;
   $('topConf').innerHTML = '<b>' + (top.p * 100).toFixed(1) + '%</b> confidence' +
     (margin < 0.25 ? ' — close call with ' + ranked[1].name + ', try a longer or cleaner clip' : '');
+  const bits = [];
+  if (info && info.speechOnly) {
+    if (info.kept) {
+      const secs = info.kept.kept * BLOCK / SR;
+      bits.push(info.kept.relaxed
+        ? `no part of the clip scored cleanly as speech — used the ${secs.toFixed(0)} s that came closest`
+        : `kept ${secs.toFixed(0)} s of speech out of ${info.clipSeconds.toFixed(0)} s ` +
+          `(${info.kept.total - info.kept.kept} s scored as music, noise or silence)`);
+    }
+    if (info.skipped) bits.push(`${info.skipped} window${info.skipped > 1 ? 's' : ''} dropped by Whisper as speechless`);
+    if (info.speech != null) bits.push(`Whisper's speech confidence ${(info.speech * 100).toFixed(0)}%`);
+  }
+  if (info && info.used > 1) bits.push(`averaged over ${info.used} windows`);
+  $('diag').textContent = bits.length ? bits.join(' · ') : '';
+
   $('cands').innerHTML = ranked.slice(0, 5).map(l =>
     `<div class="cand"><span>${l.name}</span>` +
     `<span class="cbar"><i style="width:${(l.p * 100).toFixed(1)}%"></i></span>` +
@@ -624,7 +886,7 @@ transcribeBtn.onclick = async () => {
     await ensureModel(modelSel.value);
     status('Transcribing (this is the slow part on CPU)…');
     const { tokenizer, processor, model } = loaded;
-    const inputs = await processor(pickWindows(pcm)[0]);
+    const inputs = await processor(pickWindows($('speechOnly').checked && speechBuf ? speechBuf : pcm)[0]);
     const out = await model.generate({
       ...inputs, max_new_tokens: 160, task: 'transcribe',
       ...(detected ? { language: detected } : {})
@@ -641,7 +903,7 @@ transcribeBtn.onclick = async () => {
   detectBtn.disabled = transcribeBtn.disabled = false;
 };
 
-window.addEventListener('resize', () => { if (pcm) drawWave(pcm); });
+window.addEventListener('resize', () => { if (pcm) drawWave(pcm, lastScores); });
 </script>
 </body>
 </html>

@@ -154,7 +154,20 @@ and cached by the browser, and inference runs on the CPU through ONNX Runtime We
 in the next-token distribution *is* Whisper's language identifier — so the page can
 show ranked probabilities and a confidence margin rather than just a guess. Clips
 longer than 30 s (Whisper's window) are sampled at up to three windows, near-silent
-ones are skipped, and the distributions are averaged. An optional **Transcribe**
+ones are skipped, and the distributions are averaged.
+
+A **Conversation only** toggle (on by default) keeps the detector on speech and off
+music, hum and room noise. It works in two layers. First, locally: one-second blocks
+are scored on classic speech/music cues — the share of energy in the 300–3400 Hz
+speech band, how much spectral flatness swings between voiced and unvoiced frames,
+2–8 Hz syllable-rate envelope modulation, and the pauses speech leaves between
+words — and only the speech-like blocks are concatenated and passed on (the waveform
+dims what was dropped). If nothing scores cleanly as speech the clip isn't refused;
+the closest third goes through anyway. Second, Whisper itself: the same forward pass
+that reads the language head also gives the probability of its `<|nospeech|>` token,
+so a window Whisper hears no speech in is dropped, and surviving windows are weighted
+by that confidence. A silent clip is rejected locally, before the model is even
+fetched. An optional **Transcribe**
 button decodes the clip in the detected language. Because it needs microphone
 access, recording works on `https://` (GitHub Pages) or `localhost` only — file
 drop works anywhere. The first run needs internet to fetch the model; after that
