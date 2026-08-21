@@ -126,7 +126,7 @@
     <div class="row">
       <button id="recBtn">🎙 Record</button>
       <button id="fileBtn">Choose file…</button>
-      <input type="file" id="file" accept="audio/*,video/*" hidden>
+      <input type="file" id="file" accept="audio/*,video/*,.m4a,.mp3,.wav,.aac,.ogg,.oga,.opus,.flac,.caf,.amr,.aiff,.mp4,.mov" hidden>
       <div class="spacer"></div>
       <select id="model">
         <option value="Xenova/whisper-tiny">Whisper tiny · ~45 MB · fast</option>
@@ -144,7 +144,9 @@
 
     <div class="hint">
       5–15 seconds of clear, continuous speech is plenty. Longer clips are sampled at up to
-      three 30-second windows and the results averaged. Recording needs microphone permission
+      three 30-second windows and the results averaged. Files can be anything your browser can
+      play — <code>.m4a</code> (iPhone Voice Memos), mp3, wav, ogg/opus, flac, or the audio track
+      of a video. Recording needs microphone permission
       (and an <code>https://</code> or <code>localhost</code> page). On phones expect a slower
       first run — the model download and CPU inference both take noticeably longer than on a laptop.
     </div>
@@ -363,6 +365,12 @@ async function toPcm(arrayBuffer) {
   }
 }
 
+function decodeError(name, e) {
+  return 'Could not decode ' + name + ': ' + (e.message || e) +
+    '. The page relies on the browser\'s own decoders — Safari, Chrome and Edge read m4a/AAC, ' +
+    'but some builds (Chromium on Linux, for one) ship without it. WAV, MP3, FLAC and Ogg/Opus work everywhere.';
+}
+
 function rms(buf, from, to) {
   let s = 0;
   for (let i = from; i < to; i++) s += buf[i] * buf[i];
@@ -462,7 +470,7 @@ fileInput.onchange = async () => {
   try {
     pcm = await toPcm(await f.arrayBuffer());
     showClip(f.name);
-  } catch (e) { fail('Could not decode that file: ' + e.message); }
+  } catch (e) { fail(decodeError(f.name, e)); }
 };
 
 document.body.addEventListener('dragover', e => e.preventDefault());
@@ -472,7 +480,7 @@ document.body.addEventListener('drop', async e => {
   if (!f) return;
   status('Decoding ' + f.name + '…');
   try { pcm = await toPcm(await f.arrayBuffer()); showClip(f.name); }
-  catch (err) { fail('Could not decode that file: ' + err.message); }
+  catch (err) { fail(decodeError(f.name, err)); }
 });
 
 playBtn.onclick = () => {
