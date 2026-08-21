@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Language Detector — Whisper in the browser</title>
+<style>
+  :root {
+    --accent: #ef7f9e;
+    --accent-rgb: 239, 127, 158;
+    --bg: #0d0d1a;
+    --panel-bg: rgba(255,255,255,0.035);
+    --border: rgba(var(--accent-rgb), 0.25);
+    --text: #ccd;
+    --text-muted: #aab;
+    --text-dim: #667;
+    --error: #e74c3c;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', Tahoma, sans-serif;
+    background: var(--bg); color: var(--text);
+    min-height: 100vh; display: flex; justify-content: center;
+    padding: 32px 16px 48px;
+  }
+  .wrap { width: 100%; max-width: 660px; }
+  h1 {
+    font-size: 22px; font-weight: 700; letter-spacing: 1px;
+    color: var(--accent); text-transform: uppercase; margin-bottom: 6px;
+  }
+  .subtitle { font-size: 13px; color: var(--text-dim); margin-bottom: 26px; line-height: 1.6; }
+  .subtitle b { color: var(--text-muted); font-weight: 600; }
+  a { color: var(--accent); }
+
+  .card {
+    background: var(--panel-bg); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px; margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 14px;
+  }
+
+  /* ---- Source controls ---- */
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  button {
+    font-family: inherit; font-size: 13px; font-weight: 600;
+    border-radius: 8px; border: 1px solid var(--border);
+    background: rgba(var(--accent-rgb), 0.10); color: var(--accent);
+    padding: 10px 16px; cursor: pointer; transition: background .15s, border-color .15s, opacity .15s;
+  }
+  button:hover:not(:disabled) { background: rgba(var(--accent-rgb), 0.20); border-color: rgba(var(--accent-rgb), 0.55); }
+  button:disabled { opacity: .38; cursor: default; }
+  button.primary { background: var(--accent); color: #2a0d16; border-color: var(--accent); }
+  button.primary:hover:not(:disabled) { background: #f79ab3; }
+  button.recording { background: rgba(231,76,60,0.18); border-color: rgba(231,76,60,0.6); color: #ff8a7a; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #e74c3c;
+         margin-right: 7px; vertical-align: 1px; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+  .hint { font-size: 11px; color: var(--text-dim); margin-top: 12px; line-height: 1.5; }
+  select {
+    font-family: inherit; font-size: 12px; color: var(--text-muted);
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px; padding: 9px 10px; cursor: pointer;
+  }
+  select option { background: #16162a; }
+  .spacer { flex: 1 1 auto; }
+
+  /* ---- Waveform ---- */
+  #clip { display: none; }
+  #clip.on { display: block; }
+  canvas#wave {
+    width: 100%; height: 84px; display: block; margin-top: 14px;
+    background: rgba(0,0,0,0.28); border-radius: 8px;
+  }
+  .clip-meta { display: flex; justify-content: space-between; align-items: center;
+               font-size: 11px; color: var(--text-dim); margin-top: 8px; }
+  .clip-meta b { color: var(--text-muted); font-weight: 600; }
+  .linkish { background: none; border: none; padding: 0; font-size: 11px;
+             color: var(--accent); cursor: pointer; font-weight: 600; }
+  .linkish:hover { text-decoration: underline; background: none; }
+
+  /* ---- Status / progress ---- */
+  #status { font-size: 12px; color: var(--text-muted); margin-top: 14px; display: none; }
+  #status.on { display: block; }
+  #status.err { color: var(--error); }
+  .bar { height: 5px; border-radius: 3px; background: rgba(255,255,255,0.08); margin-top: 8px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+
+  /* ---- Results ---- */
+  #results { display: none; }
+  #results.on { display: block; }
+  .top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+  .top .name { font-size: 30px; font-weight: 700; color: #fff; letter-spacing: .5px; }
+  .top .native { font-size: 16px; color: var(--accent); }
+  .top .code { font-size: 11px; color: var(--text-dim); font-family: ui-monospace, Menlo, Consolas, monospace;
+               border: 1px solid rgba(255,255,255,0.12); border-radius: 5px; padding: 2px 6px; }
+  .top-conf { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+  .top-conf b { color: var(--accent); }
+  .cand { display: grid; grid-template-columns: 130px 1fr 46px; gap: 10px; align-items: center;
+          font-size: 12px; color: var(--text-muted); margin-bottom: 7px; }
+  .cand .cbar { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.07); overflow: hidden; }
+  .cand .cbar > i { display: block; height: 100%; background: rgba(var(--accent-rgb), 0.75); }
+  .cand .pct { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-dim); }
+  .cand:first-child .cbar > i { background: var(--accent); }
+  #transcript { margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); }
+  #transcript p { font-size: 13px; line-height: 1.6; color: #dde; margin-top: 10px; white-space: pre-wrap; }
+  footer { font-size: 11px; color: #556; line-height: 1.7; margin-top: 26px; }
+  footer a { color: #789; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Language Detector</h1>
+  <div class="subtitle">
+    Record a few seconds of speech (or drop in an audio file) and this page tells you
+    which language it is — <b>entirely in your browser</b>. It runs OpenAI's
+    <b>Whisper</b> model through
+    <a href="https://github.com/huggingface/transformers.js" target="_blank">Transformers.js</a>
+    and reads the language head directly, so you get ranked probabilities across
+    Whisper's 99 languages. Your audio is never uploaded anywhere.
+  </div>
+
+  <div class="card">
+    <h2>1 · Audio</h2>
+    <div class="row">
+      <button id="recBtn">🎙 Record</button>
+      <button id="fileBtn">Choose file…</button>
+      <input type="file" id="file" accept="audio/*,video/*" hidden>
+      <div class="spacer"></div>
+      <select id="model">
+        <option value="Xenova/whisper-tiny">Whisper tiny · ~45 MB · fast</option>
+        <option value="Xenova/whisper-base">Whisper base · ~85 MB · more accurate</option>
+      </select>
+    </div>
+
+    <div id="clip">
+      <canvas id="wave"></canvas>
+      <div class="clip-meta">
+        <span><b id="clipDur">—</b> · <span id="clipSrc"></span></span>
+        <button class="linkish" id="playBtn">▶ Play</button>
+      </div>
+    </div>
+
+    <div class="hint">
+      5–15 seconds of clear, continuous speech is plenty. Longer clips are sampled at up to
+      three 30-second windows and the results averaged. Recording needs microphone permission
+      (and an <code>https://</code> or <code>localhost</code> page). On phones expect a slower
+      first run — the model download and CPU inference both take noticeably longer than on a laptop.
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>2 · Detect</h2>
+    <div class="row">
+      <button id="detectBtn" class="primary" disabled>Detect language</button>
+      <button id="transcribeBtn" disabled>Transcribe clip</button>
+    </div>
+    <div id="status"><span id="statusText"></span><div class="bar"><i id="statusBar"></i></div></div>
+
+    <div id="results">
+      <div class="top">
+        <span class="name" id="topName">—</span>
+        <span class="native" id="topNative"></span>
+        <span class="code" id="topCode"></span>
+      </div>
+      <div class="top-conf" id="topConf"></div>
+      <div id="cands"></div>
+      <div id="transcript" hidden><h2>Transcript</h2><p id="transcriptText"></p></div>
+    </div>
+  </div>
+
+  <footer>
+    First detection downloads the model (once — your browser caches it, so later runs work
+    offline). Everything after that is local: no audio, no text and no telemetry leaves the page.
+    Model: <a href="https://huggingface.co/Xenova/whisper-tiny" target="_blank">Whisper tiny/base</a>
+    via <a href="https://github.com/huggingface/transformers.js" target="_blank">Transformers.js</a> (ONNX Runtime Web, WASM).
+    · <a href="index.html">← back to all maps</a>
+  </footer>
+</div>
+
+<script type="module">
+/* ------------------------------------------------------------------ *
+ * Whisper's 99 language tokens, in the canonical order they occupy in
+ * the tokenizer (<|en|> = 50259, then one id per entry below). Token ids
+ * are looked up by name where possible and only fall back to this order.
+ * ------------------------------------------------------------------ */
+const LANGS = `en|English|English
+zh|Chinese|中文
+de|German|Deutsch
+es|Spanish|Español
+ru|Russian|Русский
+ko|Korean|한국어
+fr|French|Français
+ja|Japanese|日本語
+pt|Portuguese|Português
+tr|Turkish|Türkçe
+pl|Polish|Polski
+ca|Catalan|Català
+nl|Dutch|Nederlands
+ar|Arabic|العربية
+sv|Swedish|Svenska
+it|Italian|Italiano
+id|Indonesian|Bahasa Indonesia
+hi|Hindi|हिन्दी
+fi|Finnish|Suomi
+vi|Vietnamese|Tiếng Việt
+he|Hebrew|עברית
+uk|Ukrainian|Українська
+el|Greek|Ελληνικά
+ms|Malay|Bahasa Melayu
+cs|Czech|Čeština
+ro|Romanian|Română
+da|Danish|Dansk
+hu|Hungarian|Magyar
+ta|Tamil|தமிழ்
+no|Norwegian|Norsk
+th|Thai|ไทย
+ur|Urdu|اردو
+hr|Croatian|Hrvatski
+bg|Bulgarian|Български
+lt|Lithuanian|Lietuvių
+la|Latin|Latina
+mi|Maori|Māori
+ml|Malayalam|മലയാളം
+cy|Welsh|Cymraeg
+sk|Slovak|Slovenčina
+te|Telugu|తెలుగు
+fa|Persian|فارسی
+lv|Latvian|Latviešu
+bn|Bengali|বাংলা
+sr|Serbian|Српски
+az|Azerbaijani|Azərbaycan
+sl|Slovenian|Slovenščina
+kn|Kannada|ಕನ್ನಡ
+et|Estonian|Eesti
+mk|Macedonian|Македонски
+br|Breton|Brezhoneg
+eu|Basque|Euskara
+is|Icelandic|Íslenska
+hy|Armenian|Հայերեն
+ne|Nepali|नेपाली
+mn|Mongolian|Монгол
+bs|Bosnian|Bosanski
+kk|Kazakh|Қазақ
+sq|Albanian|Shqip
+sw|Swahili|Kiswahili
+gl|Galician|Galego
+mr|Marathi|मराठी
+pa|Punjabi|ਪੰਜਾਬੀ
+si|Sinhala|සිංහල
+km|Khmer|ភាសាខ្មែរ
+sn|Shona|ChiShona
+yo|Yoruba|Yorùbá
+so|Somali|Soomaali
+af|Afrikaans|Afrikaans
+oc|Occitan|Occitan
+ka|Georgian|ქართული
+be|Belarusian|Беларуская
+tg|Tajik|Тоҷикӣ
+sd|Sindhi|سنڌي
+gu|Gujarati|ગુજરાતી
+am|Amharic|አማርኛ
+yi|Yiddish|ייִדיש
+lo|Lao|ລາວ
+uz|Uzbek|Oʻzbek
+fo|Faroese|Føroyskt
+ht|Haitian Creole|Kreyòl ayisyen
+ps|Pashto|پښتو
+tk|Turkmen|Türkmen
+nn|Nynorsk|Nynorsk
+mt|Maltese|Malti
+sa|Sanskrit|संस्कृतम्
+lb|Luxembourgish|Lëtzebuergesch
+my|Burmese|မြန်မာ
+bo|Tibetan|བོད་སྐད
+tl|Tagalog|Tagalog
+mg|Malagasy|Malagasy
+as|Assamese|অসমীয়া
+tt|Tatar|Татар
+haw|Hawaiian|ʻŌlelo Hawaiʻi
+ln|Lingala|Lingála
+ha|Hausa|Hausa
+ba|Bashkir|Башҡорт
+jw|Javanese|Basa Jawa
+su|Sundanese|Basa Sunda`
+  .split('\n').map(line => {
+    const [code, name, native] = line.split('|');
+    return { code, name, native };
+  });
+
+const SOT_FALLBACK_ID = 50258;   // <|startoftranscript|>
+const LANG_FALLBACK_BASE = 50259; // <|en|>
+const TJS = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3';
+const SR = 16000;                 // Whisper's input sample rate
+const WINDOW = 30 * SR;           // Whisper's 30 s receptive field
+const MAX_WINDOWS = 3;
+
+const $ = id => document.getElementById(id);
+const recBtn = $('recBtn'), fileBtn = $('fileBtn'), fileInput = $('file');
+const detectBtn = $('detectBtn'), transcribeBtn = $('transcribeBtn');
+const playBtn = $('playBtn'), modelSel = $('model');
+
+let pcm = null;        // Float32Array, 16 kHz mono — what the model sees
+let clipName = '';
+let recorder = null, recStream = null, recStart = 0, recTicker = null;
+let audioCtx = null, playing = null;
+let loaded = null;     // { repo, tokenizer, processor, model }
+let detected = null;   // top language code
+
+/* ------------------------------ status ---------------------------- */
+function status(text, pct) {
+  $('status').className = 'on';
+  $('statusText').textContent = text;
+  $('statusBar').style.width = pct == null ? '0%' : Math.round(pct * 100) + '%';
+}
+function fail(text) { $('status').className = 'on err'; $('statusText').textContent = text; $('statusBar').style.width = '0%'; }
+function clearStatus() { $('status').className = ''; }
+
+/* --------------------------- audio plumbing ----------------------- */
+function ctx() { return audioCtx ||= new (window.AudioContext || window.webkitAudioContext)(); }
+
+/* iOS/Safari start an AudioContext suspended unless it is created *and* resumed
+ * inside a user gesture, and a suspended context plays nothing. Call this from
+ * every click handler that leads to decoding or playback. */
+function wakeAudio() {
+  const c = ctx();
+  if (c.state === 'suspended') c.resume().catch(() => {});
+  return c;
+}
+
+/** Decode any browser-supported audio/video container to 16 kHz mono. */
+async function toPcm(arrayBuffer) {
+  const decoded = await new Promise((resolve, reject) => {
+    const maybe = ctx().decodeAudioData(arrayBuffer, resolve, reject);
+    if (maybe && typeof maybe.then === 'function') maybe.then(resolve, reject);
+  });
+  // Downmix to mono.
+  const n = decoded.length, chans = decoded.numberOfChannels;
+  const mono = new Float32Array(n);
+  for (let c = 0; c < chans; c++) {
+    const data = decoded.getChannelData(c);
+    for (let i = 0; i < n; i++) mono[i] += data[i] / chans;
+  }
+  if (decoded.sampleRate === SR) return mono;
+
+  // Prefer the browser's resampler; fall back to linear interpolation for
+  // engines that refuse a 16 kHz OfflineAudioContext.
+  try {
+    const off = new OfflineAudioContext(1, Math.ceil(n * SR / decoded.sampleRate), SR);
+    const buf = off.createBuffer(1, n, decoded.sampleRate);
+    buf.copyToChannel(mono, 0);
+    const src = off.createBufferSource();
+    src.buffer = buf; src.connect(off.destination); src.start();
+    return (await off.startRendering()).getChannelData(0).slice();
+  } catch {
+    const ratio = decoded.sampleRate / SR, out = new Float32Array(Math.floor(n / ratio));
+    for (let i = 0; i < out.length; i++) {
+      const p = i * ratio, i0 = Math.floor(p), frac = p - i0;
+      out[i] = mono[i0] * (1 - frac) + (mono[Math.min(i0 + 1, n - 1)]) * frac;
+    }
+    return out;
+  }
+}
+
+function rms(buf, from, to) {
+  let s = 0;
+  for (let i = from; i < to; i++) s += buf[i] * buf[i];
+  return Math.sqrt(s / Math.max(1, to - from));
+}
+
+/** Up to MAX_WINDOWS evenly spaced 30 s windows, skipping near-silent ones. */
+function pickWindows(buf) {
+  if (buf.length <= WINDOW) return [buf];
+  const count = Math.min(MAX_WINDOWS, Math.ceil(buf.length / WINDOW));
+  const step = (buf.length - WINDOW) / (count - 1);
+  const all = [];
+  for (let i = 0; i < count; i++) {
+    const start = Math.round(i * step);
+    all.push({ start, level: rms(buf, start, start + WINDOW) });
+  }
+  const loudest = Math.max(...all.map(w => w.level));
+  const kept = all.filter(w => w.level > loudest * 0.15);
+  return (kept.length ? kept : all).map(w => buf.subarray(w.start, w.start + WINDOW));
+}
+
+/* ------------------------------ waveform -------------------------- */
+function drawWave(buf) {
+  const c = $('wave'), dpr = window.devicePixelRatio || 1;
+  const w = c.clientWidth, h = c.clientHeight;
+  c.width = w * dpr; c.height = h * dpr;
+  const g = c.getContext('2d');
+  g.scale(dpr, dpr);
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = 'rgba(239,127,158,0.75)';
+  const cols = Math.max(1, Math.floor(w / 2)), per = Math.floor(buf.length / cols) || 1;
+  for (let x = 0; x < cols; x++) {
+    let peak = 0;
+    for (let i = x * per; i < (x + 1) * per && i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i]));
+    const bh = Math.max(1, peak * (h - 6));
+    g.fillRect(x * 2, (h - bh) / 2, 1.2, bh);
+  }
+}
+
+function showClip(name) {
+  clipName = name;
+  $('clip').className = 'on';
+  $('clipDur').textContent = (pcm.length / SR).toFixed(1) + ' s';
+  $('clipSrc').textContent = name;
+  drawWave(pcm);
+  detectBtn.disabled = false;
+  transcribeBtn.disabled = false;
+  $('results').className = '';
+  $('transcript').hidden = true;
+  detected = null;
+  clearStatus();
+}
+
+/* ------------------------------ recording ------------------------- */
+recBtn.onclick = async () => {
+  wakeAudio();
+  if (recorder && recorder.state === 'recording') { recorder.stop(); return; }
+  try {
+    recStream = await navigator.mediaDevices.getUserMedia({
+      audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true }
+    });
+  } catch (e) {
+    fail('Microphone unavailable: ' + e.message + ' (recording needs https:// or localhost)');
+    return;
+  }
+  const chunks = [];
+  recorder = new MediaRecorder(recStream);
+  recorder.ondataavailable = e => e.data.size && chunks.push(e.data);
+  recorder.onstop = async () => {
+    clearInterval(recTicker);
+    recStream.getTracks().forEach(t => t.stop());
+    recBtn.className = ''; recBtn.textContent = '🎙 Record';
+    fileBtn.disabled = false;
+    try {
+      pcm = await toPcm(await new Blob(chunks, { type: recorder.mimeType }).arrayBuffer());
+      showClip('microphone recording');
+    } catch (e) { fail('Could not decode the recording: ' + e.message); }
+  };
+  recorder.start();
+  recStart = Date.now();
+  fileBtn.disabled = true;
+  recBtn.className = 'recording';
+  const tick = () => {
+    const s = (Date.now() - recStart) / 1000;
+    recBtn.innerHTML = '<span class="dot"></span>Stop · ' + s.toFixed(1) + ' s';
+    if (s > 120) recorder.stop();   // hard cap, 2 minutes is far more than enough
+  };
+  tick();
+  recTicker = setInterval(tick, 100);
+};
+
+fileBtn.onclick = () => { wakeAudio(); fileInput.click(); };
+fileInput.onchange = async () => {
+  const f = fileInput.files[0];
+  if (!f) return;
+  status('Decoding ' + f.name + '…');
+  try {
+    pcm = await toPcm(await f.arrayBuffer());
+    showClip(f.name);
+  } catch (e) { fail('Could not decode that file: ' + e.message); }
+};
+
+document.body.addEventListener('dragover', e => e.preventDefault());
+document.body.addEventListener('drop', async e => {
+  e.preventDefault();
+  const f = e.dataTransfer.files[0];
+  if (!f) return;
+  status('Decoding ' + f.name + '…');
+  try { pcm = await toPcm(await f.arrayBuffer()); showClip(f.name); }
+  catch (err) { fail('Could not decode that file: ' + err.message); }
+});
+
+playBtn.onclick = () => {
+  if (playing) { playing.stop(); return; }
+  wakeAudio();
+  const buf = ctx().createBuffer(1, pcm.length, SR);
+  buf.copyToChannel(pcm, 0);
+  const src = ctx().createBufferSource();
+  src.buffer = buf; src.connect(ctx().destination);
+  src.onended = () => { playing = null; playBtn.textContent = '▶ Play'; };
+  src.start();
+  playing = src;
+  playBtn.textContent = '■ Stop';
+};
+
+/* ------------------------------ the model ------------------------- */
+let libPromise = null;
+const lib = () => (libPromise ||= import(/* @vite-ignore */ TJS));
+
+async function ensureModel(repo) {
+  if (loaded && loaded.repo === repo) return loaded;
+  const { AutoTokenizer, AutoProcessor, WhisperForConditionalGeneration, env } = await lib();
+  env.allowLocalModels = false;   // this page is served statically; go straight to the Hub
+
+  const files = new Map();
+  const progress = p => {
+    if (p.status === 'progress' && p.total) files.set(p.file, { loaded: p.loaded, total: p.total });
+    else if (p.status === 'done' && files.has(p.file)) { const f = files.get(p.file); f.loaded = f.total; }
+    let l = 0, t = 0;
+    for (const f of files.values()) { l += f.loaded; t += f.total; }
+    status('Downloading model (' + (l / 1e6).toFixed(1) + ' / ' + (t / 1e6).toFixed(1) + ' MB) — cached after the first run',
+           t ? l / t : 0);
+  };
+
+  status('Loading model…', 0);
+  const tokenizer = await AutoTokenizer.from_pretrained(repo, { progress_callback: progress });
+  const processor = await AutoProcessor.from_pretrained(repo, { progress_callback: progress });
+  const model = await WhisperForConditionalGeneration.from_pretrained(repo, {
+    device: 'wasm', dtype: 'q8', progress_callback: progress
+  });
+  loaded = { repo, tokenizer, processor, model, ids: tokenIds(tokenizer) };
+  return loaded;
+}
+
+/** Resolve <|startoftranscript|> and the 99 <|xx|> ids from the tokenizer. */
+function tokenIds(tokenizer) {
+  const byName = new Map();
+  for (const t of (tokenizer.added_tokens || [])) {
+    const content = t.content ?? t.token ?? t.value;
+    if (content != null && t.id != null) byName.set(content, t.id);
+  }
+  const lookup = (token, fallback) => {
+    const id = byName.get(token);
+    return typeof id === 'number' ? id : fallback;
+  };
+  return {
+    sot: lookup('<|startoftranscript|>', SOT_FALLBACK_ID),
+    langs: LANGS.map((l, i) => lookup('<|' + l.code + '|>', LANG_FALLBACK_BASE + i))
+  };
+}
+
+/**
+ * One forward pass with only <|startoftranscript|> in the decoder: the next-token
+ * distribution over the <|xx|> tokens *is* Whisper's language identifier.
+ * Returns probabilities aligned with LANGS.
+ */
+async function langProbs(chunk) {
+  const { Tensor } = await lib();
+  const { processor, model, ids } = loaded;
+  const inputs = await processor(chunk);
+  const decoder_input_ids = new Tensor('int64', BigInt64Array.from([BigInt(ids.sot)]), [1, 1]);
+  const { logits } = await model({ ...inputs, decoder_input_ids });
+  const vocab = logits.dims.at(-1);
+  const row = logits.data.length - vocab;   // last (and only) decoder position
+
+  let max = -Infinity;
+  for (const id of ids.langs) max = Math.max(max, logits.data[row + id]);
+  const exp = ids.langs.map(id => Math.exp(logits.data[row + id] - max));
+  const sum = exp.reduce((a, b) => a + b, 0);
+  return exp.map(v => v / sum);
+}
+
+/** Fallback: let generate() do the detection, giving a winner but no distribution. */
+async function langByGenerate(chunk) {
+  const { processor, model, ids } = loaded;
+  const inputs = await processor(chunk);
+  const out = await model.generate({ ...inputs, max_new_tokens: 1 });
+  const seq = Array.from(out.data ?? out[0] ?? []).map(Number);
+  const probs = LANGS.map(() => 0);
+  for (const tok of seq) {
+    const idx = ids.langs.indexOf(tok);
+    if (idx >= 0) { probs[idx] = 1; return probs; }
+  }
+  throw new Error('the model did not return a language token');
+}
+
+/* ------------------------------ actions --------------------------- */
+detectBtn.onclick = async () => {
+  detectBtn.disabled = transcribeBtn.disabled = true;
+  try {
+    await ensureModel(modelSel.value);
+    const windows = pickWindows(pcm);
+    const total = LANGS.map(() => 0);
+    for (let i = 0; i < windows.length; i++) {
+      status(windows.length > 1 ? `Analysing window ${i + 1} of ${windows.length}…` : 'Analysing audio…',
+             i / windows.length);
+      let probs;
+      try { probs = await langProbs(windows[i]); }
+      catch (e) { console.warn('logit read failed, falling back to generate()', e); probs = await langByGenerate(windows[i]); }
+      for (let j = 0; j < total.length; j++) total[j] += probs[j] / windows.length;
+    }
+    render(total);
+    clearStatus();
+  } catch (e) {
+    console.error(e);
+    fail('Detection failed: ' + e.message + '. The model is fetched from huggingface.co via jsDelivr — check the network tab if this page is behind a proxy or offline on first run.');
+  }
+  detectBtn.disabled = transcribeBtn.disabled = false;
+};
+
+function render(probs) {
+  const ranked = LANGS.map((l, i) => ({ ...l, p: probs[i] })).sort((a, b) => b.p - a.p);
+  const top = ranked[0];
+  detected = top.code;
+  $('topName').textContent = top.name;
+  $('topNative').textContent = top.native === top.name ? '' : top.native;
+  $('topCode').textContent = top.code;
+  const margin = top.p - ranked[1].p;
+  $('topConf').innerHTML = '<b>' + (top.p * 100).toFixed(1) + '%</b> confidence' +
+    (margin < 0.25 ? ' — close call with ' + ranked[1].name + ', try a longer or cleaner clip' : '');
+  $('cands').innerHTML = ranked.slice(0, 5).map(l =>
+    `<div class="cand"><span>${l.name}</span>` +
+    `<span class="cbar"><i style="width:${(l.p * 100).toFixed(1)}%"></i></span>` +
+    `<span class="pct">${(l.p * 100).toFixed(1)}%</span></div>`).join('');
+  $('results').className = 'on';
+}
+
+transcribeBtn.onclick = async () => {
+  detectBtn.disabled = transcribeBtn.disabled = true;
+  try {
+    await ensureModel(modelSel.value);
+    status('Transcribing (this is the slow part on CPU)…');
+    const { tokenizer, processor, model } = loaded;
+    const inputs = await processor(pickWindows(pcm)[0]);
+    const out = await model.generate({
+      ...inputs, max_new_tokens: 160, task: 'transcribe',
+      ...(detected ? { language: detected } : {})
+    });
+    const text = tokenizer.batch_decode(out, { skip_special_tokens: true })[0] || '(nothing recognised)';
+    $('transcriptText').textContent = text.trim();
+    $('transcript').hidden = false;
+    $('results').className = 'on';
+    clearStatus();
+  } catch (e) {
+    console.error(e);
+    fail('Transcription failed: ' + e.message);
+  }
+  detectBtn.disabled = transcribeBtn.disabled = false;
+};
+
+window.addEventListener('resize', () => { if (pcm) drawWave(pcm); });
+</script>
+</body>
+</html>

@@ -21,6 +21,10 @@ full list.
 - **[submarine_cables.html](submarine_cables.html)** — global submarine cable routes, landing points, and documented damage incidents (2024–2025), data from [TeleGeography](https://www.submarinecablemap.com)
 - **[electricity_map.html](electricity_map.html)** — world heatmap of average residential electricity price by country, with a live generation-mix breakdown (coal, gas, nuclear, hydro, wind, solar…) on hover
 
+## Tools
+
+- **[language_detector.html](language_detector.html)** — spoken-**language detector**: record from the microphone or drop in an audio/video file and it ranks Whisper's 99 languages by probability. Runs [OpenAI Whisper](https://github.com/openai/whisper) (tiny or base) fully client-side through [Transformers.js](https://github.com/huggingface/transformers.js) — see below. No key, no server, nothing uploaded
+
 The earthquake maps:
 
 - Fetch live data from the USGS earthquake API on load (requires internet)
@@ -139,6 +143,22 @@ layer is a periodic snapshot from GlobalPetrolPrices baked into the file — the
 is no free worldwide live price feed. The generation mix shown on hover is
 fetched live from [Our World in Data](https://ourworldindata.org/electricity-mix)
 each time the map opens (with the bundled snapshot as an offline fallback).
+
+The language detector is a single self-contained page with no backend. It captures
+audio with `MediaRecorder`, decodes and resamples it to 16 kHz mono with the Web
+Audio API, then runs Whisper locally: the ONNX model is fetched once from the
+Hugging Face Hub (`Xenova/whisper-tiny`, ~45 MB, or `Xenova/whisper-base`, ~85 MB)
+and cached by the browser, and inference runs on the CPU through ONNX Runtime Web
+(WASM). Detection is a **single decoder step**: the model is fed only the
+`<|startoftranscript|>` token, and the softmax over the 99 `<|xx|>` language tokens
+in the next-token distribution *is* Whisper's language identifier — so the page can
+show ranked probabilities and a confidence margin rather than just a guess. Clips
+longer than 30 s (Whisper's window) are sampled at up to three windows, near-silent
+ones are skipped, and the distributions are averaged. An optional **Transcribe**
+button decodes the clip in the detected language. Because it needs microphone
+access, recording works on `https://` (GitHub Pages) or `localhost` only — file
+drop works anywhere. The first run needs internet to fetch the model; after that
+it works offline.
 
 Open any `.html` file directly in a browser.
 

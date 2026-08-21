@@ -66,6 +66,9 @@
     a.card.power h2 { color: #7ed99a; }
     a.card.power:hover { border-color: rgba(126,217,154,0.5); background: rgba(126,217,154,0.08); }
     a.card.power { grid-column: 1 / -1; }
+    a.card.lang h2 { color: #ef7f9e; }
+    a.card.lang:hover { border-color: rgba(239,127,158,0.5); background: rgba(239,127,158,0.08); }
+    a.card.lang { grid-column: 1 / -1; }
     a.card p { font-size: 12px; color: #aab; line-height: 1.5; }
     footer { margin-top: 32px; font-size: 11px; color: #556; }
     footer a { color: #789; }
@@ -135,6 +138,10 @@
       <a class="card power" href="electricity_map.html">
         <h2>World Electricity Prices</h2>
         <p>Average residential price per country (heatmap), with a live generation-mix breakdown — coal, gas, nuclear, hydro, wind, solar… — on hover.</p>
+      </a>
+      <a class="card lang" href="language_detector.html">
+        <h2>Language Detector (audio)</h2>
+        <p>Record a few seconds of speech — or drop in an audio file — and get the spoken language ranked by probability. Runs OpenAI's Whisper in your browser via Transformers.js; nothing is uploaded.</p>
       </a>
     </div>
     <footer>
