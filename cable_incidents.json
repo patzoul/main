@@ -45,6 +45,15 @@
     "source": "Taiwan Coast Guard, The Diplomat, VOA, Global Taiwan Institute"
   },
   {
+    "lat": 57.6,
+    "lon": 20.0,
+    "date": "Jan 26, 2025",
+    "title": "Baltic Sea — LVRTC Latvia–Sweden cable damaged (vessel Vezhen)",
+    "cables": ["LVRTC (Latvia–Sweden, Ventspils–Gotland)"],
+    "desc": "A fiber-optic cable operated by Latvia's LVRTC, running from Ventspils to Sweden's island of Gotland, was damaged in Swedish economic waters about 130 km off the Latvian coast. Sweden seized the Malta-flagged bulk carrier Vezhen — with Bulgarian officers and a Myanmar crew — on suspicion of sabotage amid heightened Baltic tensions. After investigating, however, Swedish prosecutors ruled the damage accidental: two of the anchor's three safety devices had been inoperative for some time, and the last gave way in heavy seas, dropping the anchor and chain, which dragged across the cable. The seizure was lifted and the case was formally closed in October 2025.",
+    "source": "Washington Post, Euronews, Data Center Dynamics, The Moscow Times, LSM"
+  },
+  {
     "lat": 23.574,
     "lon": 119.576,
     "date": "Feb 25, 2025",
@@ -70,5 +79,32 @@
     "cables": ["SeaMeWe-4", "IMEWE", "FALCON GCX"],
     "desc": "Cables were severed near Jeddah, Saudi Arabia, knocking out segments of SeaMeWe-4 (operated by Tata Communications) and IMEWE, while Kuwaiti officials confirmed damage to the FALCON GCX cable as well. The disruption raised latency for cloud services — including Microsoft Azure — across India, Pakistan and the UAE for about a day before traffic was rerouted. Early assessments pointed to ordinary commercial shipping activity, likely an anchor dragged across the seabed, rather than deliberate sabotage. Physical repairs were expected to take weeks to months.",
     "source": "NBC News, Network World, Gulf Business"
+  },
+  {
+    "lat": 59.7,
+    "lon": 24.85,
+    "date": "Dec 31, 2025",
+    "title": "Gulf of Finland — Elisa & Arelion cables cut, Fitburg detained",
+    "cables": ["Elisa (Helsinki–Tallinn)", "Arelion (Estonia EEZ)"],
+    "desc": "Finnish operator Elisa detected a break in its Helsinki–Tallinn data cable at 4:53 EET, inside Estonia's exclusive economic zone; Arelion-operated cables in the same waters were damaged alongside it. Finnish police and coast guard intercepted the cargo ship Fitburg — sailing from St Petersburg toward Haifa under a Saint Vincent and the Grenadines flag — after finding its anchor deployed with a drag track running for tens of kilometers along the seabed nearby. Fourteen crew (Russian, Georgian, Kazakh and Azerbaijani nationals) were detained for questioning; the ship was released in mid-January 2026, though one crew member remained in custody and others under travel restrictions. By March 2026 Finland's National Bureau of Investigation had concluded the cable was cut by the Fitburg's anchor dragging through Estonia's EEZ, but no government formally declared the incident deliberate sabotage. The break came amid a wider cluster of Baltic cable faults in late December 2025, several of which authorities attributed to storms rather than any vessel.",
+    "source": "gCaptain, NBC News, Euronews, ERR, CNN, The Moscow Times"
+  },
+  {
+    "lat": 56.45,
+    "lon": 20.95,
+    "date": "Jan 2, 2026",
+    "title": "Baltic Sea — BCS East cable damaged off Liepāja, Latvia",
+    "cables": ["BCS East"],
+    "desc": "Arelion's BCS East cable, linking Liepāja, Latvia, with Palanga, Lithuania, was damaged a few kilometers from its Liepāja landing station. Latvian tracking data showed a vessel changing course toward the cable route shortly before the fault, and police boarded a ship docked in Liepāja for questioning, but investigators subsequently said they found no evidence tying that vessel to the damage. Arelion said it could not rule out any cause, accidental or deliberate, and repairs were completed within about two weeks. The fault followed a cluster of other Baltic cable and pipeline incidents in the preceding days, including the Dec 31, 2025 Fitburg cable-cutting case.",
+    "source": "Data Center Dynamics, Telecompaper, gCaptain, Splash247"
+  },
+  {
+    "lat": 26.3,
+    "lon": 120.24,
+    "date": "Mar 31 – Apr 29, 2026",
+    "title": "Taiwan — Matsu TM-3 cable cut twice near Dongyin",
+    "cables": ["Taiwan-Matsu Cable No. 3 (TM-3)"],
+    "desc": "Chunghwa Telecom reported a partial break in the Dongyin–Beigan section of the Taiwan-Matsu Cable No. 3 on Mar 31, 2026, the day the Chinese-flagged barge Hai Hong Gong 66 began salvaging the grounded fishing vessel Min Lian Yu 63896 nearby; Taiwan's Coast Guard detained 11 crew members and referred the case to prosecutors. In late April the same cable failed completely, forcing Dongyin's roughly 1,500 residents onto backup microwave links for full connectivity. International outlets attributed this second break to the wreck shifting in bad weather, while Taiwanese officials and domestic media continued to suspect the salvage barge's operations; no authority has conclusively resolved the cause. Full repairs were not expected before Jul 2026.",
+    "source": "Focus Taiwan, Taipei Times, Tom's Hardware, The Diplomat, SubTel Forum"
   }
 ]

@@ -18,7 +18,7 @@ full list.
 - **[malacca_ships.html](malacca_ships.html)** — live ship traffic in the Strait of Malacca via [aisstream.io](https://aisstream.io) AIS data
 - **[world_ships.html](world_ships.html)** — live worldwide ship traffic (whole-globe AIS) via [aisstream.io](https://aisstream.io), rendered as lightweight canvas dots colored by vessel type
 - **[world_aircraft.html](world_aircraft.html)** — worldwide aircraft positions from the [OpenSky Network](https://opensky-network.org/), colored by altitude band (ground / low / mid / cruise). An hourly snapshot, not live — see below
-- **[submarine_cables.html](submarine_cables.html)** — global submarine cable routes, landing points, and documented damage incidents (2024–2025), data from [TeleGeography](https://www.submarinecablemap.com)
+- **[submarine_cables.html](submarine_cables.html)** — global submarine cable routes, landing points, and documented damage incidents (2024–2026), data from [TeleGeography](https://www.submarinecablemap.com)
 - **[electricity_map.html](electricity_map.html)** — world heatmap of average residential electricity price by country, with a live generation-mix breakdown (coal, gas, nuclear, hydro, wind, solar…) on hover
 
 ## Tools
