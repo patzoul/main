@@ -106,5 +106,23 @@
     "cables": ["Taiwan-Matsu Cable No. 3 (TM-3)"],
     "desc": "Chunghwa Telecom reported a partial break in the Dongyin–Beigan section of the Taiwan-Matsu Cable No. 3 on Mar 31, 2026, the day the Chinese-flagged barge Hai Hong Gong 66 began salvaging the grounded fishing vessel Min Lian Yu 63896 nearby; Taiwan's Coast Guard detained 11 crew members and referred the case to prosecutors. In late April the same cable failed completely, forcing Dongyin's roughly 1,500 residents onto backup microwave links for full connectivity. International outlets attributed this second break to the wreck shifting in bad weather, while Taiwanese officials and domestic media continued to suspect the salvage barge's operations; no authority has conclusively resolved the cause. Full repairs were not expected before Jul 2026.",
     "source": "Focus Taiwan, Taipei Times, Tom's Hardware, The Diplomat, SubTel Forum"
+  },
+  {
+    "lat": 34.85,
+    "lon": 35.85,
+    "date": "Jun 15, 2026",
+    "title": "Eastern Mediterranean — Aletar cable cut off Tartous, Syria",
+    "cables": ["Aletar"],
+    "desc": "Syrian Telecom reported that the Aletar submarine cable, one of four systems landing at Tartous and linking Syria to Alexandria, Egypt, was cut near the Syrian coast, cutting into the country's international internet capacity. Syrian officials publicly called it an \"act of sabotage\" and described a broader \"systematic sabotage campaign\" against the country's telecom sector, but did not name a suspect, and Egypt did not immediately comment on the allegation; the cause has not been independently confirmed. Syrian Telecom said it was seeking outside technical expertise and rerouted traffic via the Ugarit cable to Cyprus and an upgraded terrestrial link through Turkey while repairs were arranged.",
+    "source": "Data Center Dynamics, Al-Monitor, Al Arabiya, Xinhua"
+  },
+  {
+    "lat": -31.95,
+    "lon": 115.55,
+    "date": "Aug 8–9, 2026",
+    "title": "Australia — INDIGO West & INDIGO Central cables faulted off Perth",
+    "cables": ["INDIGO West", "INDIGO Central"],
+    "desc": "Two SUBCO-operated cables — INDIGO West (Perth–Singapore/Indonesia) and INDIGO Central (Perth–Sydney) — suffered shunt faults within hours of each other over the weekend, inside Australia's federally declared Submarine Cable Protection Zone off Perth. SUBCO co-CEO Bevan Slattery said the faults occurred in close proximity and flagged what he called suspicious or coincidental vessel activity nearby, prompting a request for the Australian Federal Police to investigate. The AFP confirmed it received a report of crime and was assessing it, but as of publication no cause — accidental (e.g. anchor drag) or deliberate — had been established, and the cables lacked diagnostic systems that would confirm the mechanism until a physical inspection could be carried out.",
+    "source": "ABC News, Maritime Executive, Converge Digest, MLQ News, Tom's Hardware"
   }
 ]
