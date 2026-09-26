@@ -21,10 +21,6 @@ full list.
 - **[submarine_cables.html](submarine_cables.html)** — global submarine cable routes, landing points, and documented damage incidents (2024–2026), data from [TeleGeography](https://www.submarinecablemap.com)
 - **[electricity_map.html](electricity_map.html)** — world heatmap of average residential electricity price by country, with a live generation-mix breakdown (coal, gas, nuclear, hydro, wind, solar…) on hover
 
-## Tools
-
-- **[language_detector.html](language_detector.html)** — spoken-**language detector**: record from the microphone or drop in an audio/video file and it ranks Whisper's 99 languages by probability. Runs [OpenAI Whisper](https://github.com/openai/whisper) (tiny or base) fully client-side through [Transformers.js](https://github.com/huggingface/transformers.js) — see below. No key, no server, nothing uploaded
-
 The earthquake maps:
 
 - Fetch live data from the USGS earthquake API on load (requires internet)
@@ -144,43 +140,11 @@ is no free worldwide live price feed. The generation mix shown on hover is
 fetched live from [Our World in Data](https://ourworldindata.org/electricity-mix)
 each time the map opens (with the bundled snapshot as an offline fallback).
 
-The language detector is a single self-contained page with no backend. It captures
-audio with `MediaRecorder`, decodes and resamples it to 16 kHz mono with the Web
-Audio API, then runs Whisper locally: the ONNX model is fetched once from the
-Hugging Face Hub (`Xenova/whisper-tiny`, ~45 MB, or `Xenova/whisper-base`, ~85 MB)
-and cached by the browser, and inference runs on the CPU through ONNX Runtime Web
-(WASM). Detection is a **single decoder step**: the model is fed only the
-`<|startoftranscript|>` token, and the softmax over the 99 `<|xx|>` language tokens
-in the next-token distribution *is* Whisper's language identifier — so the page can
-show ranked probabilities and a confidence margin rather than just a guess. Clips
-longer than 30 s (Whisper's window) are sampled at up to three windows, near-silent
-ones are skipped, and the distributions are averaged.
-
-A **Conversation only** toggle (on by default) keeps the detector on speech and off
-music, hum and room noise, in two layers. First, a voice-activity detector:
-[Silero VAD](https://github.com/snakers4/silero-vad), a ~2 MB neural model run
-locally through the same ONNX runtime as Whisper, scores every 32 ms of audio; its
-output is turned into speech segments the way Silero's reference implementation
-does it (hysteresis, minimum speech and silence lengths, a little padding so word
-edges survive), and only those segments are concatenated and passed on. The
-waveform dims what was dropped. Second, Whisper itself: the forward pass that reads
-the language head also gives the probability of its `<|nospeech|>` token, so a
-window Whisper hears no speech in is dropped, and surviving windows are weighted by
-that confidence. A silent clip is rejected instantly, before anything is downloaded.
-
-On a benchmark of synthesized speech in four languages (English, French, German,
-Greek) mixed with instrumental music at +10, +3 and 0 dB, pink noise and mains hum,
-the voice detector kept 99% of the speech and dropped 98% of everything else. The
-signal-processing heuristic it replaces kept 68% and dropped 81% — it lost most of
-the speech under music at +3 dB and under hum, and let pink noise through entirely.
-That heuristic is still in the page as a fallback, used only if the voice detector
-can't be loaded. An optional **Transcribe**
-button decodes the clip in the detected language. Because it needs microphone
-access, recording works on `https://` (GitHub Pages) or `localhost` only — file
-drop works anywhere. The first run needs internet to fetch the model; after that
-it works offline.
-
 Open any `.html` file directly in a browser.
+
+The in-browser spoken-language detector that used to live here has moved to its own
+repository: [patzoul/language-detector](https://github.com/patzoul/language-detector),
+live at https://patzoul.github.io/language-detector/.
 
 ## Regenerating
 
