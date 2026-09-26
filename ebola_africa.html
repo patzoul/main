@@ -237,9 +237,9 @@
   function specInfo(k) { return LEGEND[k] || { label:k, color:'#8a949e' }; }
 
   const map = L.map('map', { zoomControl: true, worldCopyJump: false }).setView([2.5, 19], 4);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CartoDB</a> | Data: <a href="https://www.cdc.gov/ebola/outbreaks/" style="color:#e07a5f">CDC</a> / <a href="https://www.who.int/" style="color:#e07a5f">WHO</a>',
-    subdomains: 'abcd', maxZoom: 12
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://www.esri.com/">Esri</a> | Data: <a href="https://www.cdc.gov/ebola/outbreaks/" style="color:#e07a5f">CDC</a> / <a href="https://www.who.int/" style="color:#e07a5f">WHO</a>',
+    maxZoom: 12
   }).addTo(map);
 
   const layerGroup = L.layerGroup().addTo(map);
