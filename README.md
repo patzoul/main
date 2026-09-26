@@ -157,17 +157,24 @@ longer than 30 s (Whisper's window) are sampled at up to three windows, near-sil
 ones are skipped, and the distributions are averaged.
 
 A **Conversation only** toggle (on by default) keeps the detector on speech and off
-music, hum and room noise. It works in two layers. First, locally: one-second blocks
-are scored on classic speech/music cues — the share of energy in the 300–3400 Hz
-speech band, how much spectral flatness swings between voiced and unvoiced frames,
-2–8 Hz syllable-rate envelope modulation, and the pauses speech leaves between
-words — and only the speech-like blocks are concatenated and passed on (the waveform
-dims what was dropped). If nothing scores cleanly as speech the clip isn't refused;
-the closest third goes through anyway. Second, Whisper itself: the same forward pass
-that reads the language head also gives the probability of its `<|nospeech|>` token,
-so a window Whisper hears no speech in is dropped, and surviving windows are weighted
-by that confidence. A silent clip is rejected locally, before the model is even
-fetched. An optional **Transcribe**
+music, hum and room noise, in two layers. First, a voice-activity detector:
+[Silero VAD](https://github.com/snakers4/silero-vad), a ~2 MB neural model run
+locally through the same ONNX runtime as Whisper, scores every 32 ms of audio; its
+output is turned into speech segments the way Silero's reference implementation
+does it (hysteresis, minimum speech and silence lengths, a little padding so word
+edges survive), and only those segments are concatenated and passed on. The
+waveform dims what was dropped. Second, Whisper itself: the forward pass that reads
+the language head also gives the probability of its `<|nospeech|>` token, so a
+window Whisper hears no speech in is dropped, and surviving windows are weighted by
+that confidence. A silent clip is rejected instantly, before anything is downloaded.
+
+On a benchmark of synthesized speech in four languages (English, French, German,
+Greek) mixed with instrumental music at +10, +3 and 0 dB, pink noise and mains hum,
+the voice detector kept 99% of the speech and dropped 98% of everything else. The
+signal-processing heuristic it replaces kept 68% and dropped 81% — it lost most of
+the speech under music at +3 dB and under hum, and let pink noise through entirely.
+That heuristic is still in the page as a fallback, used only if the voice detector
+can't be loaded. An optional **Transcribe**
 button decodes the clip in the detected language. Because it needs microphone
 access, recording works on `https://` (GitHub Pages) or `localhost` only — file
 drop works anywhere. The first run needs internet to fetch the model; after that
