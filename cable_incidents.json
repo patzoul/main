@@ -124,5 +124,14 @@
     "cables": ["INDIGO West", "INDIGO Central"],
     "desc": "Two SUBCO-operated cables — INDIGO West (Perth–Singapore/Indonesia) and INDIGO Central (Perth–Sydney) — suffered shunt faults within hours of each other over the weekend, inside Australia's federally declared Submarine Cable Protection Zone off Perth. SUBCO co-CEO Bevan Slattery said the faults occurred in close proximity and flagged what he called suspicious or coincidental vessel activity nearby, prompting a request for the Australian Federal Police to investigate. The AFP confirmed it received a report of crime and was assessing it, but as of publication no cause — accidental (e.g. anchor drag) or deliberate — had been established, and the cables lacked diagnostic systems that would confirm the mechanism until a physical inspection could be carried out.",
     "source": "ABC News, Maritime Executive, Converge Digest, MLQ News, Tom's Hardware"
+  },
+  {
+    "lat": -6.05,
+    "lon": 105.9,
+    "date": "Sep 4, 2026",
+    "title": "Indonesia — Australia Singapore Cable (ASC) severed near Anyer, Java",
+    "cables": ["Australia Singapore Cable (ASC)"],
+    "desc": "Vocus's Australia Singapore Cable (ASC) suffered a complete fiber break in Indonesian waters near Anyer, Java, about 615 km from its Singapore landing station, roughly three weeks after SUBCO's separate INDIGO West cable on the same Perth–Singapore corridor had been knocked out by a shunt fault on Aug 8, 2026. The near-simultaneous failures eliminated all direct low-latency subsea capacity between Perth and Singapore, forcing Vocus to reroute traffic via Australia's east coast and onward through Japan, Hong Kong and the US, and later to restore a temporary Layer 2 path via Jakarta. No cause has been confirmed; Vocus has not said whether the break was accidental or deliberate, and determining the cause will require physically recovering the cable section. As of early October 2026, Vocus had scheduled a marine repair window starting around Oct 25, targeting completion by Nov 4, 2026.",
+    "source": "iTnews, Submarine Networks, Vocus"
   }
 ]
