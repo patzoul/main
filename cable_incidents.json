@@ -124,5 +124,23 @@
     "cables": ["INDIGO West", "INDIGO Central"],
     "desc": "Two SUBCO-operated cables — INDIGO West (Perth–Singapore/Indonesia) and INDIGO Central (Perth–Sydney) — suffered shunt faults within hours of each other over the weekend, inside Australia's federally declared Submarine Cable Protection Zone off Perth. SUBCO co-CEO Bevan Slattery said the faults occurred in close proximity and flagged what he called suspicious or coincidental vessel activity nearby, prompting a request for the Australian Federal Police to investigate. The AFP confirmed it received a report of crime and was assessing it, but as of publication no cause — accidental (e.g. anchor drag) or deliberate — had been established, and the cables lacked diagnostic systems that would confirm the mechanism until a physical inspection could be carried out.",
     "source": "ABC News, Maritime Executive, Converge Digest, MLQ News, Tom's Hardware"
+  },
+  {
+    "lat": -4.0,
+    "lon": 105.4,
+    "date": "Sep 4, 2026",
+    "title": "Java Sea — Australia Singapore Cable (ASC) severed off Indonesia",
+    "cables": ["Australia Singapore Cable (ASC)"],
+    "desc": "Vocus reported a break on the Indonesia-to-Singapore segment of its Australia Singapore Cable, in Indonesian waters roughly 615 km from the Singapore landing station, between the Anyer, Indonesia and Tanah Merah, Singapore landing points. The fault knocked out wavelength and Ethernet services on the Perth–Singapore route, forcing traffic to be rerouted via Japan, Hong Kong and the US with added latency. Because it followed the unrelated INDIGO West and INDIGO Central shunt faults off Perth from Aug 8–9, 2026, it left Perth without a direct working subsea route to Singapore. No cause was publicly stated; Vocus gave no attribution of accidental or deliberate damage, and repairs were delayed by Indonesian permitting, with full restoration targeted for early November 2026.",
+    "source": "Vocus, Light Reading, SubTel Forum, Telecompaper"
+  },
+  {
+    "lat": 7.7,
+    "lon": 112.3,
+    "date": "Oct 2, 2026",
+    "title": "South China Sea — C2C cable Philippines–Singapore segment cut",
+    "cables": ["EAC-C2C (Philippines–Singapore segment)"],
+    "desc": "A break on the Philippines–Singapore segment of the EAC-C2C submarine cable system, landing at Nasugbu, Batangas, disrupted international bandwidth nationwide in the Philippines starting the evening of Oct 2, 2026. PLDT, Globe and Converge rerouted affected traffic onto other submarine systems, and services were reported largely normalized within a day, though Globe said repairing the physical fiber itself would take several weeks. The Philippine government's ICT secretary said possible causes ranged from an ordinary fiber fault to equipment failure to sabotage, but stressed it was too early to conclude; no precise break location or cause was confirmed in subsequent reporting.",
+    "source": "Rappler, BusinessWorld, The Star, SubTel Forum, Tribune"
   }
 ]
